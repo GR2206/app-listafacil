@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "784601596788",
+    "firebase_url": "https://scanner-gondola-default-rtdb.firebaseio.com",
+    "project_id": "scanner-gondola",
+    "storage_bucket": "scanner-gondola.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:784601596788:android:c67a622d39ed48291d2221",
+        "android_client_info": {
+          "package_name": "com.listafacil.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAJnQ23somZ1r7fgstCeXIDgj5C6I-MECk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

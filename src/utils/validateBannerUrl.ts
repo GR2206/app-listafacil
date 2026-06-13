@@ -1,0 +1,33 @@
+export function isValidHttpUrl(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+
+  try {
+    const parsed = new URL(trimmed);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+export function isValidBannerTargetUrl(value: unknown): value is string {
+  if (typeof value !== 'string') return false;
+
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+
+  if (isValidHttpUrl(trimmed)) return true;
+
+  try {
+    const parsed = new URL(trimmed);
+    return (
+      parsed.protocol === 'mailto:' ||
+      parsed.protocol === 'tel:' ||
+      parsed.protocol === 'whatsapp:'
+    );
+  } catch {
+    return false;
+  }
+}

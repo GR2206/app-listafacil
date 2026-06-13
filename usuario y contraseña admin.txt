@@ -1,0 +1,4 @@
+Credenciales por defecto (mantene en el mennu lista facil apretado por 3 segundos):
+
+Usuario: admin@listafacil.app
+Contraseña: ListaFacil2026!

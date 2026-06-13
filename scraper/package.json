@@ -1,0 +1,18 @@
+{
+  "name": "lista-facil-scraper",
+  "version": "1.0.0",
+  "description": "Web scraper de supermercados → Firebase Firestore",
+  "type": "module",
+  "scripts": {
+    "scrape": "node src/index.js",
+    "scrape:carrefour": "node src/index.js --market=carrefour",
+    "scrape:coto": "node src/index.js --market=coto",
+    "scrape:jumbo": "node src/index.js --market=jumbo"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.4.0",
+    "firebase-admin": "^12.0.0",
+    "puppeteer": "^23.0.0"
+  }
+}

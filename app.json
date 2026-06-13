@@ -1,0 +1,134 @@
+{
+  "expo": {
+    "name": "Lista Fácil",
+    "slug": "lista-compras-scanner",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "listafacil",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "experiments": {
+      "tsconfigPaths": true
+    },
+    "splash": {
+      "image": "./assets/logo_redondeado.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#000000"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.listafacil.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Necesitamos la cámara para escanear códigos de barra en el supermercado.",
+        "NSLocationWhenInUseUsageDescription": "Lista Fácil usa tu ubicación solo si elegís detectar tu zona automáticamente.",
+        "LSApplicationQueriesSchemes": [
+          "mailto",
+          "https",
+          "http",
+          "comgooglemaps",
+          "googlemaps"
+        ]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#000000"
+      },
+      "package": "com.listafacil.app",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.VIBRATE",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
+      "queries": [
+        {
+          "intent": {
+            "action": "android.intent.action.VIEW",
+            "data": {
+              "scheme": "https"
+            }
+          }
+        },
+        {
+          "intent": {
+            "action": "android.intent.action.VIEW",
+            "data": {
+              "scheme": "http"
+            }
+          }
+        },
+        {
+          "intent": {
+            "action": "android.intent.action.VIEW",
+            "data": {
+              "scheme": "mailto"
+            }
+          }
+        },
+        {
+          "intent": {
+            "action": "android.intent.action.VIEW",
+            "data": {
+              "scheme": "geo"
+            }
+          }
+        },
+        {
+          "intent": {
+            "action": "android.intent.action.VIEW",
+            "data": {
+              "scheme": "https",
+              "host": "wa.me"
+            }
+          }
+        },
+        {
+          "intent": {
+            "action": "android.intent.action.VIEW",
+            "data": {
+              "scheme": "whatsapp"
+            }
+          }
+        }
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Permitir acceso a la cámara para escanear productos en el supermercado.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Lista Fácil usa tu ubicación solo si elegís detectar tu zona automáticamente.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
+        }
+      ],
+      "expo-asset",
+      "expo-font",
+      "expo-sqlite",
+      "expo-splash-screen",
+      "@react-native-firebase/app"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "81974898-e483-4b52-8bc5-77e1609862c0"
+      }
+    },
+    "owner": "g2206"
+  }
+}

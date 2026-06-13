@@ -1,0 +1,48 @@
+{
+
+  "version": 1,
+
+  "updatedAt": "2026-06-08T00:00:00.000Z",
+
+  "banners": {
+
+    "top_banner": {
+
+      "enabled": true,
+
+      "animationUrl": null,
+
+      "imageUrl": null,
+
+      "targetUrl": "https://listafacil.app/ofertas"
+
+    },
+
+    "bottom_banner": {
+
+      "enabled": true,
+
+      "animationUrl": null,
+
+      "imageUrl": null,
+
+      "targetUrl": "mailto:publicidad@listafacil.app"
+
+    },
+
+    "list_banner": {
+
+      "enabled": true,
+
+      "animationUrl": null,
+
+      "imageUrl": null,
+
+      "targetUrl": "https://listafacil.app"
+
+    }
+
+  }
+
+}
+

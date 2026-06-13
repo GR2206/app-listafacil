@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "updatedAt": "2026-06-08T12:00:00.000Z",
+  "banners": {
+    "top_banner": {
+      "enabled": true,
+      "animationUrl": "https://raw.githubusercontent.com/USER/REPO/main/banners/top-animation.json",
+      "imageUrl": "https://ejemplo.com/banners/top.jpg",
+      "targetUrl": "https://listafacil.app/ofertas"
+    },
+    "bottom_banner": {
+      "enabled": true,
+      "animationUrl": "https://raw.githubusercontent.com/USER/REPO/main/banners/bottom-animation.json",
+      "targetUrl": "mailto:publicidad@listafacil.app"
+    },
+    "list_banner": {
+      "enabled": true,
+      "animationUrl": "https://raw.githubusercontent.com/USER/REPO/main/banners/list-animation.json",
+      "targetUrl": "https://listafacil.app"
+    }
+  }
+}

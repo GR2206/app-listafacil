@@ -1,0 +1,59 @@
+rules_version = '2';
+
+service cloud.firestore {
+
+  match /databases/{database}/documents {
+
+    match /Productos/{barcode} {
+
+      allow read: if true;
+
+      allow write: if false;
+
+    }
+
+    match /Asociaciones_EAN/{docId} {
+
+      allow read: if true;
+
+      allow write: if true;
+
+    }
+
+    match /Pendientes_de_carga/{docId} {
+
+      allow read: if true;
+
+      allow write: if true;
+
+    }
+
+    match /EAN_Prefix_Eventos/{docId} {
+
+      allow read: if true;
+
+      allow write: if true;
+
+    }
+
+    match /Ranking_Semanal_Zona/{zoneId} {
+
+      allow read: if true;
+
+      allow write: if true;
+
+    }
+
+    match /SyncEstado/{supermarketId} {
+
+      allow read: if true;
+
+      allow write: if false;
+
+    }
+
+  }
+
+}
+
+

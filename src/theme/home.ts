@@ -1,0 +1,31 @@
+/** Tokens de la pantalla de inicio — estilo azul neón del logo */
+export const homeColors = {
+  background: '#050508',
+  /** Contenedores de texto sobre fondo tech */
+  panel: 'rgba(0, 0, 0, 0.6)',
+  surface: '#0A0F18',
+  surfaceElevated: '#111B2A',
+  text: '#F5FBFF',
+  textMuted: '#8CB4D9',
+  border: '#1A3A5C',
+  bannerPremium: '#0A1220',
+  bannerPremiumBorder: '#00E5FF',
+  bannerBottom: '#080E16',
+  menuIcon: '#00E5FF',
+  logoRing: '#00E5FF',
+  logoInner: '#050A12',
+  gridCard: 'rgba(10, 18, 32, 0.94)',
+  neonBlue: '#00E5FF',
+  neonBlueSoft: '#4DF0FF',
+  neonGlow: 'rgba(0, 229, 255, 0.45)',
+  goldenGlow: '#00E5FF',
+  goldenBright: '#7DF9FF',
+  midnightBlue: '#06101C',
+  headingGlow: '#B8F4FF',
+  /** Halo cálido del logo en splash (mockup premium) */
+  splashGlowOuter: '#FFF9EC',
+  splashGlowMid: '#FFEAB8',
+  splashGlowCore: '#F5D078',
+  splashDisc: '#06080E',
+  splashDiscBorder: 'rgba(255, 232, 170, 0.52)',
+};
