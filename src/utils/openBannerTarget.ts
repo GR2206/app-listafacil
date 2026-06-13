@@ -1,7 +1,18 @@
 import type { BannerSlotId } from '@/types/banner';
-import { logBannerOfferClick } from '@/services/analytics';
+import { logBannerListaClick, logBannerTopClick } from '@/services/analytics';
 import { openExternalUrlDirect } from '@/utils/safeLinking';
 import { isValidBannerTargetUrl } from '@/utils/validateBannerUrl';
+
+function logBannerClick(slot: BannerSlotId): void {
+  if (slot === 'top_banner') {
+    void logBannerTopClick();
+    return;
+  }
+
+  if (slot === 'list_banner') {
+    void logBannerListaClick();
+  }
+}
 
 export async function openBannerTarget(
   bannerId: BannerSlotId,
@@ -9,6 +20,6 @@ export async function openBannerTarget(
 ): Promise<boolean> {
   if (!isValidBannerTargetUrl(targetUrl)) return false;
 
-  void logBannerOfferClick(bannerId);
+  logBannerClick(bannerId);
   return openExternalUrlDirect(targetUrl.trim());
 }

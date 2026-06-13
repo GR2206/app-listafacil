@@ -14,6 +14,7 @@ import { SupermarketOrbLogo } from '@/components/home/SupermarketOrbLogo';
 import { SUPERMARKET_NEON_COLORS } from '@/components/home/supermarketOrbTheme';
 import { useSuperTaquillero } from '@/hooks/useSuperTaquillero';
 import { useCartStore } from '@/store/cartStore';
+import { logSupermarketClick } from '@/services/analytics';
 import { withNavFeedback } from '@/utils/withNavFeedback';
 import { homeColors } from '@/theme/home';
 import { radii, spacing, typography } from '@/theme';
@@ -30,6 +31,7 @@ export function SuperTaquilleroWidget() {
   const openWinnerList = useCallback(() => {
     if (!top) return;
     void (async () => {
+      void logSupermarketClick(top.supermarketId, top.supermarketName, 'super_taquillero');
       await setSupermarket(top.supermarketId, top.supermarketName);
       router.push({
         pathname: '/cart',

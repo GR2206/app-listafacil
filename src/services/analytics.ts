@@ -43,6 +43,21 @@ async function ensureWebAnalytics(): Promise<import('firebase/analytics').Analyt
   return webAnalyticsInit;
 }
 
+function sanitizeEventToken(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 32);
+}
+
+function supermarketEventSuffix(supermarketId: string): string {
+  const suffix = sanitizeEventToken(supermarketId.replace(/-/g, '_'));
+  return suffix || 'desconocido';
+}
+
 export async function logAppEvent(eventName: string, params?: object): Promise<void> {
   const eventParams = params as EventParams | undefined;
 
@@ -64,12 +79,33 @@ export async function logAppEvent(eventName: string, params?: object): Promise<v
   }
 }
 
-export function logSupermarketClick(supermercadoNombre: string): Promise<void> {
-  return logAppEvent('click_supermercado', { supermercado_nombre: supermercadoNombre });
+/** Cada súper dispara su propio evento: click_super_coto, click_super_carrefour, etc. */
+export function logSupermarketClick(
+  supermarketId: string,
+  supermercadoNombre: string,
+  origen: 'grid' | 'super_taquillero' = 'grid'
+): Promise<void> {
+  const suffix = supermarketEventSuffix(supermarketId);
+
+  return logAppEvent(`click_super_${suffix}`, {
+    supermercado_id: supermarketId,
+    supermercado_nombre: supermercadoNombre,
+    origen,
+  });
 }
 
-export function logBannerOfferClick(bannerId: string): Promise<void> {
-  return logAppEvent('click_banner_oferta', { banner_id: bannerId });
+export function logBannerTopClick(): Promise<void> {
+  return logAppEvent('click_banner_top', {
+    banner_id: 'banner_top',
+    banner_ubicacion: 'pagina_principal',
+  });
+}
+
+export function logBannerListaClick(): Promise<void> {
+  return logAppEvent('click_banner_lista', {
+    banner_id: 'banner_lista',
+    banner_ubicacion: 'lista_compras',
+  });
 }
 
 export function logScanSuccess(nombreProducto: string, precioDetectado: number): Promise<void> {
@@ -79,12 +115,16 @@ export function logScanSuccess(nombreProducto: string, precioDetectado: number):
   });
 }
 
+/** Cada recuadro de ahorro/mapa dispara su evento: click_mapa_coto, click_mapa_la_reina, etc. */
 export function logSupermarketMapsClick(
   supermarketId: string,
   supermarketNombre: string
 ): Promise<void> {
-  return logAppEvent('click_mapa_supermercado', {
+  const suffix = supermarketEventSuffix(supermarketId);
+
+  return logAppEvent(`click_mapa_${suffix}`, {
     supermercado_id: supermarketId,
     supermercado_nombre: supermarketNombre,
+    origen: 'panel_ahorro',
   });
 }

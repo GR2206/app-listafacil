@@ -57,7 +57,7 @@ export default function SupermarketSelectScreen() {
   const { gridWidth, orbSize, slotOrbSize } = getHomeGridMetrics(screenWidth);
   const gridRows = getHomeGridRows(MOCK_SUPERMARKETS);
   const onSelect = async (market: Supermarket) => {
-    void logSupermarketClick(market.name);
+    void logSupermarketClick(market.id, market.name, 'grid');
     await setSupermarket(market.id, market.name);
     router.push({
       pathname: '/cart',
