@@ -4,6 +4,7 @@
     "slug": "lista-compras-scanner",
     "version": "1.0.0",
     "orientation": "portrait",
+    "icon": "./assets/logo.png",
     "scheme": "listafacil",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
@@ -31,7 +32,9 @@
       }
     },
     "android": {
+      "icon": "./assets/logo.png",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#000000"
       },
       "package": "com.listafacil.app",

@@ -20,7 +20,9 @@ import { useCartStore } from '@/store/cartStore';
 import { useMerchantAuthStore } from '@/store/merchantAuthStore';
 
 import { logAppEvent } from '@/services/analytics';
+import { checkForAppUpdate, type AppUpdatePrompt } from '@/services/appUpdateCheck';
 import { prepareAppResources } from '@/services/prepareAppResources';
+import { UpdateAvailableModal } from '@/components/update/UpdateAvailableModal';
 
 
 
@@ -45,6 +47,7 @@ export default function RootLayout() {
   const [recursosListos, setRecursosListos] = useState(false);
 
   const [mostrarApp, setMostrarApp] = useState(false);
+  const [updatePrompt, setUpdatePrompt] = useState<AppUpdatePrompt | null>(null);
 
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -134,7 +137,13 @@ export default function RootLayout() {
 
   }, [recursosListos, fadeAnim]);
 
+  useEffect(() => {
+    if (!mostrarApp) return;
 
+    void checkForAppUpdate().then((prompt) => {
+      if (prompt) setUpdatePrompt(prompt);
+    });
+  }, [mostrarApp]);
 
   return (
 
@@ -180,6 +189,15 @@ export default function RootLayout() {
 
         </Animated.View>
 
+      ) : null}
+
+      {updatePrompt ? (
+        <UpdateAvailableModal
+          prompt={updatePrompt}
+          onDismiss={
+            updatePrompt.forceUpdate ? undefined : () => setUpdatePrompt(null)
+          }
+        />
       ) : null}
 
     </View>

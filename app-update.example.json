@@ -1,0 +1,8 @@
+{
+  "androidMinVersionCode": 5,
+  "androidLatestVersionCode": 6,
+  "forceUpdate": false,
+  "title": "Nueva versión de Lista Fácil",
+  "message": "Hay una actualización disponible. Tocá Actualizar para instalar la build que te compartimos.",
+  "updateUrl": "https://listafacil.app"
+}
