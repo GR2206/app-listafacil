@@ -100,6 +100,30 @@ export function HistoricoTickets({ purchases }: HistoricoTicketsProps) {
           color: homeColors.neonBlue,
           marginTop: 6,
         },
+        monthTotalRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginTop: m.spacingSm,
+          paddingTop: m.spacingSm,
+          paddingHorizontal: m.spacingSm,
+          paddingBottom: m.spacingXs,
+          borderRadius: radii.md,
+          borderWidth: 1,
+          borderColor: homeColors.border,
+          backgroundColor: 'rgba(0, 229, 255, 0.08)',
+        },
+        monthTotalLabel: {
+          flex: 1,
+          fontSize: m.body,
+          fontWeight: '800',
+          color: homeColors.text,
+        },
+        monthTotalAmount: {
+          fontSize: m.title,
+          fontWeight: '900',
+          color: homeColors.neonBlue,
+        },
         emptyTitle: {
           marginTop: m.spacingSm,
         },
@@ -182,6 +206,15 @@ export function HistoricoTickets({ purchases }: HistoricoTicketsProps) {
               </Pressable>
             );
           })}
+
+          <View style={styles.monthTotalRow}>
+            <Text style={styles.monthTotalLabel}>
+              Total mes {group.monthName}
+            </Text>
+            <Text style={styles.monthTotalAmount}>
+              {formatCurrency(group.monthTotal)}
+            </Text>
+          </View>
         </View>
       ))}
     </View>

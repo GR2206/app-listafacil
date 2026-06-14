@@ -11,6 +11,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 
 import { useRouter } from 'expo-router';
@@ -24,6 +25,7 @@ import {
   applyAllPendingReviewItems,
   applyPendingReviewItem,
   describePendingUserProposal,
+  dismissAllPendingReviewItems,
   dismissPendingReviewItem,
   getPendingReviewDisplayName,
   listConfirmedReviewProducts,
@@ -42,12 +44,15 @@ function createRevisionStyles(m: ScaledMenuMetrics) {
   return StyleSheet.create({
     toolbar: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
       alignItems: 'center',
       gap: m.spacingSm,
       marginBottom: m.spacingSm,
     },
     applyAllBtn: {
-      flex: 1,
+      flexGrow: 1,
+      flexShrink: 1,
+      minWidth: '46%',
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
@@ -56,6 +61,24 @@ function createRevisionStyles(m: ScaledMenuMetrics) {
       borderRadius: radii.md,
       paddingVertical: 10,
       paddingHorizontal: m.spacingMd,
+    },
+    dismissAllBtn: {
+      flexGrow: 1,
+      flexShrink: 1,
+      minWidth: '46%',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      backgroundColor: '#DC2626',
+      borderRadius: radii.md,
+      paddingVertical: 10,
+      paddingHorizontal: m.spacingMd,
+    },
+    dismissAllText: {
+      color: '#FFFFFF',
+      fontSize: m.caption,
+      fontWeight: '800',
     },
     applyAllText: {
       color: '#FFFFFF',
@@ -305,6 +328,7 @@ export default function RevisionProductosScreen() {
   const [loading, setLoading] = useState(true);
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [applyingAll, setApplyingAll] = useState(false);
+  const [dismissingAll, setDismissingAll] = useState(false);
   const [dismissingId, setDismissingId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<PendingReviewItem | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -368,7 +392,7 @@ export default function RevisionProductosScreen() {
 
   const handleDismiss = useCallback(
     async (item: PendingReviewItem) => {
-      if (dismissingId || applyingId || applyingAll) return;
+      if (dismissingId || dismissingAll || applyingId || applyingAll) return;
 
       setDismissingId(item.id);
       setFeedback(null);
@@ -384,7 +408,7 @@ export default function RevisionProductosScreen() {
       setPending((current) => current.filter((row) => row.id !== item.id));
       setFeedback(`Pedido descartado: EAN ${item.ean}.`);
     },
-    [applyingAll, applyingId, dismissingId]
+    [applyingAll, applyingId, dismissingAll, dismissingId]
   );
 
   const handleEditSaved = useCallback(
@@ -416,6 +440,39 @@ export default function RevisionProductosScreen() {
     []
   );
 
+  const handleDismissAll = useCallback(async () => {
+    if (dismissingAll || applyingAll || applyingId || pending.length === 0) return;
+
+    Alert.alert(
+      'Descartar todo',
+      `¿Descartar los ${pending.length} pedidos pendientes? Esta acción no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Descartar todo',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              setDismissingAll(true);
+              setFeedback(null);
+
+              const snapshot = [...pending];
+              const { dismissed, failed } = await dismissAllPendingReviewItems(snapshot);
+
+              await refresh();
+              setDismissingAll(false);
+              setFeedback(
+                failed > 0
+                  ? `Descartados: ${dismissed}. Fallidos: ${failed}.`
+                  : `Se descartaron ${dismissed} pedidos pendientes.`
+              );
+            })();
+          },
+        },
+      ]
+    );
+  }, [applyingAll, applyingId, dismissingAll, pending, refresh]);
+
   const handleApplyAll = useCallback(async () => {
     if (applyingAll || applyingId || pending.length === 0) return;
 
@@ -445,11 +502,11 @@ export default function RevisionProductosScreen() {
           accessibilityRole="button"
           accessibilityLabel="Aplicar todas las asociaciones pendientes"
           onPress={withClickSound(() => void handleApplyAll())}
-          disabled={applyingAll || pending.length === 0}
+          disabled={applyingAll || dismissingAll || pending.length === 0}
           style={({ pressed }) => [
             styles.applyAllBtn,
-            pressed && !applyingAll && styles.pressed,
-            (applyingAll || pending.length === 0) && styles.disabled,
+            pressed && !applyingAll && !dismissingAll && styles.pressed,
+            (applyingAll || dismissingAll || pending.length === 0) && styles.disabled,
           ]}
         >
           {applyingAll ? (
@@ -459,6 +516,27 @@ export default function RevisionProductosScreen() {
           )}
           <Text style={styles.applyAllText}>
             {applyingAll ? 'Aplicando…' : 'Aplicar Todo'}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Descartar todos los pedidos pendientes"
+          onPress={withClickSound(() => void handleDismissAll())}
+          disabled={dismissingAll || applyingAll || pending.length === 0}
+          style={({ pressed }) => [
+            styles.dismissAllBtn,
+            pressed && !dismissingAll && !applyingAll && styles.pressed,
+            (dismissingAll || applyingAll || pending.length === 0) && styles.disabled,
+          ]}
+        >
+          {dismissingAll ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <Ionicons name="trash-outline" size={18} color="#FFFFFF" />
+          )}
+          <Text style={styles.dismissAllText}>
+            {dismissingAll ? 'Descartando…' : 'Descartar Todo'}
           </Text>
         </Pressable>
 

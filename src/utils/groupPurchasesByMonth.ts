@@ -3,7 +3,9 @@ import type { CompletedPurchaseRecord } from '@/db/database';
 export interface PurchaseMonthGroup {
   key: string;
   label: string;
+  monthName: string;
   purchases: CompletedPurchaseRecord[];
+  monthTotal: number;
 }
 
 const MONTH_NAMES = [
@@ -43,13 +45,16 @@ export function groupPurchasesByMonth(
     const existing = groups.get(key);
     if (existing) {
       existing.purchases.push(purchase);
+      existing.monthTotal += purchase.total;
       continue;
     }
 
     groups.set(key, {
       key,
       label: monthLabel(date),
+      monthName: MONTH_NAMES[date.getMonth()] ?? '',
       purchases: [purchase],
+      monthTotal: purchase.total,
     });
   }
 

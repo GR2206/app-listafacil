@@ -1,11 +1,11 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
 import { ImageBackground, StyleSheet } from 'react-native';
 
 import { useHomeBackground } from '@/hooks/useHomeBackground';
 import { isValidHttpUrl } from '@/utils/validateBannerUrl';
 
-/** Fallback local si el Gist no trae URL o falla la red. */
+/** Fondo original embebido: se usa sin internet o si falla la imagen del Gist. */
 export const HOME_SCREEN_BACKGROUND_FALLBACK = require('../../../assets/home.png');
 
 interface HomeTexturedBackgroundProps {
@@ -15,9 +15,16 @@ interface HomeTexturedBackgroundProps {
 
 export function HomeTexturedBackground({ children, paddingTop = 0 }: HomeTexturedBackgroundProps) {
   const { homeBackgroundUrl } = useHomeBackground();
+  const hasRemoteUrl = isValidHttpUrl(homeBackgroundUrl) && Boolean(homeBackgroundUrl);
+  const [remoteFailed, setRemoteFailed] = useState(false);
 
+  useEffect(() => {
+    setRemoteFailed(false);
+  }, [homeBackgroundUrl]);
+
+  const useRemote = hasRemoteUrl && !remoteFailed;
   const source =
-    isValidHttpUrl(homeBackgroundUrl) && homeBackgroundUrl
+    useRemote && homeBackgroundUrl
       ? { uri: homeBackgroundUrl.trim() }
       : HOME_SCREEN_BACKGROUND_FALLBACK;
 
@@ -27,6 +34,7 @@ export function HomeTexturedBackground({ children, paddingTop = 0 }: HomeTexture
       style={[styles.root, { paddingTop }]}
       imageStyle={styles.backgroundImage}
       resizeMode="cover"
+      onError={() => setRemoteFailed(true)}
     >
       {children}
     </ImageBackground>

@@ -283,6 +283,24 @@ export async function markPendingProductLinked(payload: {
   }
 }
 
+export async function dismissAllPendingReviewItems(
+  items: PendingReviewItem[]
+): Promise<{ dismissed: number; failed: number }> {
+  let dismissed = 0;
+  let failed = 0;
+
+  for (const item of items) {
+    const ok = await dismissPendingReviewItem(item);
+    if (ok) {
+      dismissed += 1;
+    } else {
+      failed += 1;
+    }
+  }
+
+  return { dismissed, failed };
+}
+
 export async function applyAllPendingReviewItems(
   items: PendingReviewItem[]
 ): Promise<{ applied: number; failed: number }> {
