@@ -7,6 +7,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { BannerManagerProvider } from '@/context/BannerManagerContext';
+import { HomeBackgroundProvider } from '@/context/HomeBackgroundContext';
 
 import { ThemeProvider } from '@/context/ThemeContext';
 import { CartListScaleProvider } from '@/context/CartListScaleContext';
@@ -158,13 +159,13 @@ export default function RootLayout() {
         <SafeAreaProvider>
 
           <BannerManagerProvider>
-
+            <HomeBackgroundProvider>
             <ThemeProvider>
               <CartListScaleProvider>
                 <ThemedStack />
               </CartListScaleProvider>
             </ThemeProvider>
-
+            </HomeBackgroundProvider>
           </BannerManagerProvider>
 
         </SafeAreaProvider>

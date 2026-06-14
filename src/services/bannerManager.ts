@@ -384,8 +384,6 @@ export async function prefetchManifestImages(manifest: BannerManifest): Promise<
 
   const tasks: Promise<boolean>[] = [];
 
-
-
   for (const slot of SLOT_IDS) {
 
     const config = manifest.banners[slot];
