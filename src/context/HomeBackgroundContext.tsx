@@ -7,8 +7,10 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import {
+  buildHomeBackgroundImageUri,
   fetchHomeAppManifest,
   getStartupHomeAppManifest,
   prefetchHomeBackgroundImage,
@@ -37,23 +39,21 @@ export function HomeBackgroundProvider({ children }: { children: ReactNode }) {
   );
   const [manifest, setManifest] = useState<HomeAppManifest | null>(startupManifest);
 
-  const load = useCallback(async () => {
-    const hadCache = getStartupHomeAppManifest() !== null;
-
-    if (!hadCache) {
+  const load = useCallback(async (forceRefresh = false) => {
+    if (!getStartupHomeAppManifest()) {
       setIsLoading(true);
       setIsReady(false);
     }
 
     try {
-      const { manifest: nextManifest, fromRemote } = await fetchHomeAppManifest();
+      const { manifest: nextManifest, fromRemote } = await fetchHomeAppManifest({
+        forceRefresh,
+      });
       setManifest(nextManifest);
       setUsedFallbackManifest(!fromRemote);
-      if (!hadCache) {
-        await prefetchHomeBackgroundImage(nextManifest);
-      }
+      await prefetchHomeBackgroundImage(nextManifest);
     } catch {
-      const { manifest: nextManifest } = await fetchHomeAppManifest();
+      const { manifest: nextManifest } = await fetchHomeAppManifest({ forceRefresh: true });
       setManifest(nextManifest);
       setUsedFallbackManifest(true);
     } finally {
@@ -63,8 +63,24 @@ export function HomeBackgroundProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void load();
+    void load(true);
   }, [load]);
+
+  useEffect(() => {
+    const onAppStateChange = (state: AppStateStatus) => {
+      if (state === 'active') {
+        void load(true);
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', onAppStateChange);
+    return () => subscription.remove();
+  }, [load]);
+
+  const homeBackgroundUrl = useMemo(
+    () => (manifest ? buildHomeBackgroundImageUri(manifest) : null),
+    [manifest]
+  );
 
   const value = useMemo(
     () => ({
@@ -72,10 +88,10 @@ export function HomeBackgroundProvider({ children }: { children: ReactNode }) {
       isReady,
       usedFallbackManifest,
       manifest,
-      homeBackgroundUrl: manifest?.homeBackgroundUrl ?? null,
-      reload: load,
+      homeBackgroundUrl,
+      reload: () => load(true),
     }),
-    [isLoading, isReady, usedFallbackManifest, manifest, load]
+    [isLoading, isReady, usedFallbackManifest, manifest, homeBackgroundUrl, load]
   );
 
   return (

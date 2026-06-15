@@ -3,27 +3,12 @@ import { Image } from 'expo-image';
 import defaultManifest from '@/data/home-app.default.json';
 import { HOME_APP_FETCH_TIMEOUT_MS, HOME_APP_GIST_URL } from '@/config/homeBackground';
 import type { HomeAppManifest } from '@/types/homeBackground';
+import { fetchRemoteJson } from '@/utils/fetchRemoteJson';
 import { isValidHttpUrl } from '@/utils/validateBannerUrl';
 
 let cachedManifest: HomeAppManifest | null = null;
 let usedRemoteManifest = false;
 const prefetchedUrls = new Set<string>();
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Home app fetch timeout')), timeoutMs);
-
-    promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-  });
-}
 
 function normalizeManifest(raw: unknown): HomeAppManifest {
   const source = (raw && typeof raw === 'object' ? raw : {}) as Partial<HomeAppManifest>;
@@ -37,28 +22,40 @@ function normalizeManifest(raw: unknown): HomeAppManifest {
   };
 }
 
-export async function fetchHomeAppManifest(): Promise<{
+export function buildHomeBackgroundImageUri(
+  manifest: HomeAppManifest
+): string | null {
+  if (!isValidHttpUrl(manifest.homeBackgroundUrl)) return null;
+
+  const base = manifest.homeBackgroundUrl!.trim();
+  const cacheKey = encodeURIComponent(manifest.updatedAt ?? String(manifest.version ?? 1));
+  const separator = base.includes('?') ? '&' : '?';
+  return `${base}${separator}v=${cacheKey}`;
+}
+
+export async function fetchHomeAppManifest(options?: {
+  forceRefresh?: boolean;
+}): Promise<{
   manifest: HomeAppManifest;
   fromRemote: boolean;
 }> {
-  if (cachedManifest) {
-    return { manifest: cachedManifest, fromRemote: usedRemoteManifest };
+  if (!options?.forceRefresh && cachedManifest && usedRemoteManifest) {
+    return { manifest: cachedManifest, fromRemote: true };
   }
 
   try {
-    const response = await withTimeout(fetch(HOME_APP_GIST_URL), HOME_APP_FETCH_TIMEOUT_MS);
-    if (!response.ok) {
-      throw new Error(`Home app HTTP ${response.status}`);
-    }
+    const json = await fetchRemoteJson(HOME_APP_GIST_URL, HOME_APP_FETCH_TIMEOUT_MS, 'Home app');
+    const manifest = normalizeManifest(json);
 
-    const manifest = normalizeManifest(await response.json());
     cachedManifest = manifest;
     usedRemoteManifest = true;
     return { manifest, fromRemote: true };
   } catch {
+    if (cachedManifest && usedRemoteManifest && !options?.forceRefresh) {
+      return { manifest: cachedManifest, fromRemote: true };
+    }
+
     const manifest = normalizeManifest(defaultManifest);
-    cachedManifest = manifest;
-    usedRemoteManifest = false;
     return { manifest, fromRemote: false };
   }
 }
@@ -72,8 +69,8 @@ export function wasRemoteHomeAppManifestUsed(): boolean {
 }
 
 export async function prefetchHomeBackgroundImage(manifest: HomeAppManifest): Promise<boolean> {
-  const url = manifest.homeBackgroundUrl;
-  if (!isValidHttpUrl(url) || prefetchedUrls.has(url)) {
+  const url = buildHomeBackgroundImageUri(manifest);
+  if (!url || prefetchedUrls.has(url)) {
     return false;
   }
 

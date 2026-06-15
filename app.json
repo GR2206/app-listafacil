@@ -2,7 +2,7 @@
   "expo": {
     "name": "Lista Fácil",
     "slug": "lista-compras-scanner",
-    "version": "1.5.1",
+    "version": "1.5.2",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "scheme": "listafacil",

@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { AppState, Platform, type AppStateStatus } from 'react-native';
 import Constants from 'expo-constants';
 
 import {
@@ -6,6 +6,8 @@ import {
   APP_UPDATE_GIST_URL,
   DEFAULT_APP_UPDATE_URL,
 } from '@/config/appUpdate';
+import { fetchRemoteJson } from '@/utils/fetchRemoteJson';
+import { isValidHttpUrl } from '@/utils/validateBannerUrl';
 
 export interface AppUpdatePrompt {
   title: string;
@@ -25,30 +27,22 @@ interface RemoteAppUpdateConfig {
   updateUrl?: string;
 }
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('App update fetch timeout')), timeoutMs);
-
-    promise
-      .then((value) => {
-        clearTimeout(timer);
-        resolve(value);
-      })
-      .catch((error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
-  });
-}
-
 export function getCurrentAndroidVersionCode(): number {
-  const raw =
-    Constants.nativeBuildVersion ??
-    Constants.expoConfig?.android?.versionCode ??
-    0;
+  const candidates = [
+    Constants.nativeBuildVersion,
+    Constants.expoConfig?.android?.versionCode,
+    (Constants.expoConfig?.extra as { androidVersionCode?: number } | undefined)
+      ?.androidVersionCode,
+  ];
 
-  const parsed = Number.parseInt(String(raw), 10);
-  return Number.isFinite(parsed) ? parsed : 0;
+  for (const candidate of candidates) {
+    const parsed = Number.parseInt(String(candidate ?? ''), 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return 0;
 }
 
 function normalizeRemoteConfig(raw: unknown): RemoteAppUpdateConfig {
@@ -74,23 +68,33 @@ export async function checkForAppUpdate(): Promise<AppUpdatePrompt | null> {
   if (currentVersionCode <= 0) return null;
 
   try {
-    const response = await withTimeout(fetch(APP_UPDATE_GIST_URL), APP_UPDATE_FETCH_TIMEOUT_MS);
-    if (!response.ok) return null;
-
-    const remote = normalizeRemoteConfig(await response.json());
+    const json = await fetchRemoteJson(
+      APP_UPDATE_GIST_URL,
+      APP_UPDATE_FETCH_TIMEOUT_MS,
+      'App update'
+    );
+    const remote = normalizeRemoteConfig(json);
     const latestVersionCode = remote.androidLatestVersionCode ?? remote.androidMinVersionCode;
-    if (!latestVersionCode || latestVersionCode <= currentVersionCode) return null;
+
+    if (!latestVersionCode || latestVersionCode <= currentVersionCode) {
+      return null;
+    }
 
     const belowMinimum =
       typeof remote.androidMinVersionCode === 'number' &&
       currentVersionCode < remote.androidMinVersionCode;
+
+    const updateUrl =
+      isValidHttpUrl(remote.updateUrl) || remote.updateUrl?.startsWith('market://')
+        ? remote.updateUrl!
+        : DEFAULT_APP_UPDATE_URL;
 
     return {
       title: remote.title ?? 'Actualización disponible',
       message:
         remote.message ??
         'Hay una versión nueva de Lista Fácil. Actualizá para probar las últimas mejoras.',
-      updateUrl: remote.updateUrl || DEFAULT_APP_UPDATE_URL,
+      updateUrl,
       forceUpdate: remote.forceUpdate === true || belowMinimum,
       latestVersionCode,
       currentVersionCode,
@@ -98,4 +102,29 @@ export async function checkForAppUpdate(): Promise<AppUpdatePrompt | null> {
   } catch {
     return null;
   }
+}
+
+export function subscribeToAppUpdateChecks(
+  onPrompt: (prompt: AppUpdatePrompt | null) => void
+): () => void {
+  let active = true;
+
+  const runCheck = () => {
+    void checkForAppUpdate().then((prompt) => {
+      if (active && prompt) onPrompt(prompt);
+    });
+  };
+
+  runCheck();
+
+  const onAppStateChange = (state: AppStateStatus) => {
+    if (state === 'active') runCheck();
+  };
+
+  const subscription = AppState.addEventListener('change', onAppStateChange);
+
+  return () => {
+    active = false;
+    subscription.remove();
+  };
 }

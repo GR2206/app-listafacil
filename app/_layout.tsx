@@ -21,7 +21,7 @@ import { useCartStore } from '@/store/cartStore';
 import { useMerchantAuthStore } from '@/store/merchantAuthStore';
 
 import { logAppEvent } from '@/services/analytics';
-import { checkForAppUpdate, type AppUpdatePrompt } from '@/services/appUpdateCheck';
+import { subscribeToAppUpdateChecks, type AppUpdatePrompt } from '@/services/appUpdateCheck';
 import { prepareAppResources } from '@/services/prepareAppResources';
 import { UpdateAvailableModal } from '@/components/update/UpdateAvailableModal';
 
@@ -139,12 +139,12 @@ export default function RootLayout() {
   }, [recursosListos, fadeAnim]);
 
   useEffect(() => {
-    if (!mostrarApp) return;
+    if (!recursosListos) return;
 
-    void checkForAppUpdate().then((prompt) => {
-      if (prompt) setUpdatePrompt(prompt);
+    return subscribeToAppUpdateChecks((prompt) => {
+      setUpdatePrompt(prompt);
     });
-  }, [mostrarApp]);
+  }, [recursosListos]);
 
   return (
 
