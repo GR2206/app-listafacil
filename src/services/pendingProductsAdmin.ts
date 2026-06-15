@@ -11,6 +11,7 @@ import {
 
 import { db } from '../../firebaseConfig.js';
 import { getEanProductMapping, saveEanProductMapping } from '@/services/eanProductMapping';
+import { publishApprovedProduct } from '@/services/publishApprovedProduct';
 
 const PENDING_COLLECTION = 'Pendientes_de_carga';
 
@@ -23,8 +24,16 @@ export interface PendingReviewItem {
   rawScan?: string;
   id_producto?: string;
   productName?: string;
+  brand?: string;
+  price?: number;
+  imageUrl?: string;
+  proposalType?: 'new_product' | 'catalog_link' | string;
   status: 'pending' | 'confirmed' | string;
   source?: string;
+}
+
+export function isUserProductProposal(item: PendingReviewItem): boolean {
+  return item.proposalType === 'new_product' || item.source === 'user_proposal';
 }
 
 export function getPendingReviewDisplayName(item: PendingReviewItem): string {
@@ -34,6 +43,26 @@ export function getPendingReviewDisplayName(item: PendingReviewItem): string {
 /** Explica en lenguaje claro qué está proponiendo el usuario. */
 export function describePendingUserProposal(item: PendingReviewItem): string[] {
   const lines: string[] = [];
+
+  if (isUserProductProposal(item)) {
+    lines.push(
+      'El usuario cargó manualmente este producto porque no figura en la web del supermercado.'
+    );
+    if (item.productName) {
+      lines.push(`Nombre propuesto: «${item.productName}».`);
+    }
+    if (item.brand) {
+      lines.push(`Marca: «${item.brand}».`);
+    }
+    if (item.price && item.price > 0) {
+      lines.push(`Precio en góndola: $${item.price}.`);
+    }
+    if (item.imageUrl) {
+      lines.push('Incluye foto del producto para revisión.');
+    }
+    lines.push('Al aprobar, se publicará en el catálogo de Lista Fácil para futuros escaneos.');
+    return lines;
+  }
 
   if (item.source === 'scan') {
     lines.push(
@@ -84,6 +113,19 @@ function mapPendingDoc(id: string, data: Record<string, unknown>): PendingReview
         ? data.productoId
         : undefined;
 
+  const priceRaw = data.price ?? data.userPrice;
+  const price =
+    typeof priceRaw === 'number' && Number.isFinite(priceRaw) && priceRaw > 0
+      ? Math.round(priceRaw)
+      : undefined;
+
+  const imageUrl =
+    typeof data.imageUrl === 'string'
+      ? data.imageUrl
+      : typeof data.userImageUrl === 'string'
+        ? data.userImageUrl
+        : undefined;
+
   return {
     id,
     ean: ean.replace(/\D/g, '') || id,
@@ -94,6 +136,16 @@ function mapPendingDoc(id: string, data: Record<string, unknown>): PendingReview
     rawScan: typeof data.rawScan === 'string' ? data.rawScan : undefined,
     id_producto,
     productName: typeof data.productName === 'string' ? data.productName : undefined,
+    brand:
+      typeof data.brand === 'string'
+        ? data.brand
+        : typeof data.userBrand === 'string'
+          ? data.userBrand
+          : undefined,
+    price,
+    imageUrl,
+    proposalType:
+      typeof data.proposalType === 'string' ? data.proposalType : undefined,
     status: typeof data.status === 'string' ? data.status : 'pending',
     source: typeof data.source === 'string' ? data.source : undefined,
   };
@@ -130,6 +182,9 @@ export interface PendingReviewEdits {
   productName?: string;
   nameHint?: string;
   id_producto?: string;
+  brand?: string;
+  price?: number;
+  imageUrl?: string;
 }
 
 export interface ApplyPendingResult {
@@ -180,6 +235,15 @@ export async function updatePendingReviewItem(
   if (edits.id_producto !== undefined) {
     payload.id_producto = edits.id_producto.trim() || null;
   }
+  if (edits.brand !== undefined) {
+    payload.brand = edits.brand.trim() || null;
+  }
+  if (edits.price !== undefined) {
+    payload.price = edits.price > 0 ? Math.round(edits.price) : null;
+  }
+  if (edits.imageUrl !== undefined) {
+    payload.imageUrl = edits.imageUrl.trim() || null;
+  }
 
   try {
     await setDoc(doc(db, PENDING_COLLECTION, ean), payload, { merge: true });
@@ -187,6 +251,72 @@ export async function updatePendingReviewItem(
   } catch (error) {
     console.warn('[Firestore] No se pudo actualizar pendiente:', error);
     return false;
+  }
+}
+
+async function applyUserProductProposal(
+  item: PendingReviewItem,
+  productName: string,
+  brand?: string,
+  imageUrl?: string,
+  price?: number
+): Promise<ApplyPendingResult> {
+  const ean = item.ean.replace(/\D/g, '');
+  const supermarketId = item.supermarketId.trim();
+  const resolvedPrice = price ?? item.price ?? 0;
+
+  if (!productName.trim()) {
+    return { ok: false, reason: 'Falta el nombre del producto' };
+  }
+  if (resolvedPrice <= 0) {
+    return { ok: false, reason: 'Falta un precio válido en góndola' };
+  }
+
+  const published = await publishApprovedProduct({
+    barcode: ean,
+    supermarketId,
+    name: productName.trim(),
+    brand,
+    imageUrl,
+    price: resolvedPrice,
+  });
+
+  if (!published) {
+    return {
+      ok: false,
+      reason:
+        'No se pudo publicar en Productos. Si el EAN ya existe en catálogo, esta propuesta solo aplica a productos nuevos.',
+    };
+  }
+
+  await saveEanProductMapping({
+    ean,
+    supermercado: supermarketId,
+    id_producto: ean,
+    supermarketName: item.supermarketName,
+    productName: productName.trim(),
+    source: 'manual_search',
+  });
+
+  try {
+    await setDoc(
+      doc(db, PENDING_COLLECTION, ean),
+      {
+        status: 'confirmed',
+        id_producto: ean,
+        productName: productName.trim(),
+        brand: brand?.trim() || null,
+        price: Math.round(resolvedPrice),
+        imageUrl: imageUrl?.trim() || null,
+        appliedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+    return { ok: true, id_producto: ean, productName: productName.trim() };
+  } catch (error) {
+    console.warn('[Firestore] Producto publicado pero falló actualizar pendiente:', error);
+    return { ok: false, reason: 'Producto publicado pero no se pudo mover a confirmados' };
   }
 }
 
@@ -208,13 +338,25 @@ export async function applyPendingReviewItem(
     }
   }
 
+  const productName = overrides?.productName ?? item.productName;
+  const brand = overrides?.brand ?? item.brand;
+  const imageUrl = overrides?.imageUrl ?? item.imageUrl;
+  const price = overrides?.price ?? item.price;
+
+  if (isUserProductProposal(item)) {
+    if (!productName?.trim()) {
+      return { ok: false, reason: 'Completá el nombre del producto antes de aprobar' };
+    }
+    return applyUserProductProposal(item, productName, brand, imageUrl, price);
+  }
+
   let id_producto = (overrides?.id_producto ?? item.id_producto)?.trim();
-  let productName = overrides?.productName ?? item.productName;
+  let resolvedName = productName;
 
   if (!id_producto) {
     const mapping = await getEanProductMapping(ean, supermarketId);
     id_producto = mapping?.id_producto;
-    productName = productName ?? mapping?.productName;
+    resolvedName = resolvedName ?? mapping?.productName;
   }
 
   if (!id_producto) {
@@ -229,7 +371,7 @@ export async function applyPendingReviewItem(
     supermercado: supermarketId,
     id_producto,
     supermarketName: item.supermarketName,
-    productName,
+    productName: resolvedName,
     source: 'manual_search',
   });
 
@@ -243,13 +385,13 @@ export async function applyPendingReviewItem(
       {
         status: 'confirmed',
         id_producto,
-        productName: productName ?? null,
+        productName: resolvedName ?? null,
         appliedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       },
       { merge: true }
     );
-    return { ok: true, id_producto, productName };
+    return { ok: true, id_producto, productName: resolvedName };
   } catch (error) {
     console.warn('[Firestore] Asociación guardada pero falló actualizar pendiente:', error);
     return { ok: false, reason: 'No se pudo mover a confirmados' };

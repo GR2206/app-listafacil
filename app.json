@@ -2,7 +2,7 @@
   "expo": {
     "name": "Lista Fácil",
     "slug": "lista-compras-scanner",
-    "version": "1.5.2",
+    "version": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "scheme": "listafacil",
@@ -110,6 +110,13 @@
           "cameraPermission": "Permitir acceso a la cámara para escanear productos en el supermercado.",
           "microphonePermission": false,
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Lista Fácil usa tus fotos para cargar productos que no están en la web del supermercado.",
+          "cameraPermission": "Lista Fácil usa la cámara para sacar fotos de productos que vas a cargar manualmente."
         }
       ],
       [

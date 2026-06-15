@@ -12,12 +12,14 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Image,
 } from 'react-native';
 
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 
 import { MenuScreenLayout } from '@/components/home/MenuScreenLayout';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
@@ -28,6 +30,7 @@ import {
   dismissAllPendingReviewItems,
   dismissPendingReviewItem,
   getPendingReviewDisplayName,
+  isUserProductProposal,
   listConfirmedReviewProducts,
   listPendingReviewProducts,
   updatePendingReviewItem,
@@ -39,6 +42,9 @@ import { radii, touchTargets } from '@/theme';
 import { useMenuContentStyles } from '@/hooks/useMenuContentStyles';
 import type { ScaledMenuMetrics } from '@/theme/scaledMenuMetrics';
 import { withClickSound } from '@/utils/withClickSound';
+import { formatCurrency } from '@/utils/formatCurrency';
+import { normalizePriceInput, parsePriceInput } from '@/utils/priceInput';
+import { uploadCatalogProductImage } from '@/services/pendingProductImageUpload';
 
 function createRevisionStyles(m: ScaledMenuMetrics) {
   return StyleSheet.create({
@@ -258,6 +264,49 @@ function createRevisionStyles(m: ScaledMenuMetrics) {
       fontSize: m.caption,
       color: homeColors.textMuted,
     },
+    modalPreviewImage: {
+      width: '100%',
+      height: 140,
+      borderRadius: radii.md,
+      backgroundColor: homeColors.surface ?? homeColors.panel,
+    },
+    modalHelp: {
+      fontSize: Math.max(9, m.caption - 2),
+      color: homeColors.textMuted,
+      lineHeight: 14,
+    },
+    modalScroll: {
+      maxHeight: '82%',
+    },
+    modalImageActions: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
+    modalImageBtn: {
+      flex: 1,
+      minWidth: 120,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      minHeight: touchTargets.min,
+      borderRadius: radii.md,
+      borderWidth: 1,
+      borderColor: homeColors.border,
+      backgroundColor: homeColors.surface ?? homeColors.panel,
+    },
+    modalImageBtnText: {
+      fontSize: Math.max(9, m.caption - 2),
+      fontWeight: '800',
+      color: homeColors.text,
+    },
+    modalUploadError: {
+      fontSize: Math.max(9, m.caption - 2),
+      fontWeight: '700',
+      color: '#B45309',
+      lineHeight: 14,
+    },
     modalActions: {
       flexDirection: 'row',
       flexWrap: 'wrap',
@@ -307,6 +356,19 @@ function createRevisionStyles(m: ScaledMenuMetrics) {
       fontSize: Math.max(9, m.caption - 4),
       fontWeight: '700',
       color: '#059669',
+    },
+    cardPreviewImage: {
+      width: '100%',
+      height: 120,
+      borderRadius: radii.sm,
+      marginTop: 8,
+      backgroundColor: homeColors.surface ?? homeColors.panel,
+    },
+    cardPrice: {
+      fontSize: m.caption,
+      fontWeight: '800',
+      color: homeColors.logoRing,
+      marginTop: 4,
     },
     pressed: {
       opacity: 0.88,
@@ -619,6 +681,9 @@ export default function RevisionProductosScreen() {
             productName: edits.productName ?? editingItem.productName,
             nameHint: edits.nameHint ?? editingItem.nameHint,
             id_producto: edits.id_producto ?? editingItem.id_producto,
+            brand: edits.brand ?? editingItem.brand,
+            price: edits.price ?? editingItem.price,
+            imageUrl: edits.imageUrl ?? editingItem.imageUrl,
           };
           handleEditSaved(updated, `Cambios guardados para EAN ${updated.ean}.`);
           setEditingItem(updated);
@@ -640,6 +705,9 @@ export default function RevisionProductosScreen() {
             productName: edits.productName ?? editingItem.productName,
             nameHint: edits.nameHint ?? editingItem.nameHint,
             id_producto: edits.id_producto ?? editingItem.id_producto,
+            brand: edits.brand ?? editingItem.brand,
+            price: edits.price ?? editingItem.price,
+            imageUrl: edits.imageUrl ?? editingItem.imageUrl,
           };
           handleEditConfirmed(updated, result);
           setEditingItem(null);
@@ -667,22 +735,90 @@ function PendingReviewEditModal({
   const [productName, setProductName] = useState('');
   const [nameHint, setNameHint] = useState('');
   const [idProducto, setIdProducto] = useState('');
+  const [brand, setBrand] = useState('');
+  const [priceInput, setPriceInput] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!item) return;
     setProductName(item.productName ?? item.nameHint ?? '');
     setNameHint(item.nameHint ?? '');
     setIdProducto(item.id_producto ?? '');
+    setBrand(item.brand ?? '');
+    setPriceInput(item.price && item.price > 0 ? String(item.price) : '');
+    setImageUrl(item.imageUrl ?? '');
+    setUploadingImage(false);
+    setImageUploadError(null);
   }, [item]);
+
+  const pickAndUploadImage = useCallback(
+    async (useCamera: boolean) => {
+      if (!item || uploadingImage || saving) return;
+
+      setImageUploadError(null);
+
+      if (useCamera) {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          setImageUploadError('Necesitamos acceso a la cámara para sacar la foto.');
+          return;
+        }
+      } else {
+        const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!permission.granted) {
+          setImageUploadError('Necesitamos acceso a tus fotos para elegir una imagen.');
+          return;
+        }
+      }
+
+      const result = useCamera
+        ? await ImagePicker.launchCameraAsync({
+            mediaTypes: ['images'],
+            quality: 0.85,
+            allowsEditing: true,
+            aspect: [1, 1],
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            quality: 0.85,
+            allowsEditing: true,
+            aspect: [1, 1],
+          });
+
+      if (result.canceled || !result.assets[0]?.uri) return;
+
+      setUploadingImage(true);
+      const remoteUrl = await uploadCatalogProductImage(result.assets[0].uri, item.ean);
+      setUploadingImage(false);
+
+      if (!remoteUrl) {
+        setImageUploadError('No se pudo subir la imagen. Revisá conexión y reglas de Firebase Storage.');
+        return;
+      }
+
+      setImageUrl(remoteUrl);
+    },
+    [item, saving, uploadingImage]
+  );
 
   if (!item) return null;
 
+  const userProposal = isUserProductProposal(item);
+  const parsedPrice = parsePriceInput(priceInput);
   const edits: PendingReviewEdits = {
     productName: productName.trim(),
     nameHint: nameHint.trim(),
     id_producto: idProducto.trim(),
+    brand: brand.trim(),
+    price: parsedPrice > 0 ? parsedPrice : undefined,
+    imageUrl: imageUrl.trim(),
   };
-  const canApply = Boolean(edits.id_producto);
+  const canApply = userProposal
+    ? Boolean(edits.productName) && (edits.price ?? 0) > 0
+    : Boolean(edits.id_producto);
+  const busy = saving || uploadingImage;
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
@@ -696,7 +832,13 @@ function PendingReviewEditModal({
           accessibilityLabel="Cerrar"
         />
 
-        <View style={styles.modalSheet}>
+        <ScrollView
+          style={styles.modalScroll}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 16 }}
+          keyboardShouldPersistTaps="handled"
+          bounces={false}
+        >
+          <View style={styles.modalSheet}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Cerrar ventana"
@@ -707,8 +849,75 @@ function PendingReviewEditModal({
             <Ionicons name="close" size={24} color={homeColors.textMuted} />
           </Pressable>
 
-          <Text style={styles.modalTitle}>Modificar pedido</Text>
+          <Text style={styles.modalTitle}>
+            {userProposal ? 'Revisar producto cargado por usuario' : 'Modificar pedido'}
+          </Text>
           <Text style={styles.modalMeta}>EAN {item.ean} · {item.supermarketName ?? item.supermarketId}</Text>
+
+          <Text style={styles.modalLabel}>Imagen del producto</Text>
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={styles.modalPreviewImage} resizeMode="contain" />
+          ) : (
+            <View style={[styles.modalPreviewImage, { alignItems: 'center', justifyContent: 'center' }]}>
+              <Ionicons name="image-outline" size={28} color={homeColors.textMuted} />
+            </View>
+          )}
+
+          <View style={styles.modalImageActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Sacar foto con cámara"
+              onPress={withClickSound(() => void pickAndUploadImage(true))}
+              disabled={busy}
+              style={({ pressed }) => [
+                styles.modalImageBtn,
+                pressed && !busy && styles.pressed,
+                busy && styles.disabled,
+              ]}
+            >
+              {uploadingImage ? (
+                <ActivityIndicator size="small" color={homeColors.text} />
+              ) : (
+                <Ionicons name="camera-outline" size={16} color={homeColors.logoRing} />
+              )}
+              <Text style={styles.modalImageBtnText}>
+                {uploadingImage ? 'Subiendo…' : 'Cámara'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Elegir imagen de galería"
+              onPress={withClickSound(() => void pickAndUploadImage(false))}
+              disabled={busy}
+              style={({ pressed }) => [
+                styles.modalImageBtn,
+                pressed && !busy && styles.pressed,
+                busy && styles.disabled,
+              ]}
+            >
+              <Ionicons name="images-outline" size={16} color={homeColors.logoRing} />
+              <Text style={styles.modalImageBtnText}>Galería</Text>
+            </Pressable>
+          </View>
+
+          {imageUploadError ? (
+            <Text style={styles.modalUploadError} accessibilityRole="alert">
+              {imageUploadError}
+            </Text>
+          ) : null}
+
+          <Text style={styles.modalLabel}>URL de imagen (opcional)</Text>
+          <TextInput
+            style={styles.modalInput}
+            value={imageUrl}
+            onChangeText={setImageUrl}
+            placeholder="Se completa al subir, o pegá una URL"
+            placeholderTextColor={homeColors.textMuted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            accessibilityLabel="URL de imagen"
+          />
 
           <Text style={styles.modalLabel}>Nombre en catálogo</Text>
           <TextInput
@@ -721,38 +930,74 @@ function PendingReviewEditModal({
             accessibilityLabel="Nombre en catálogo"
           />
 
-          <Text style={styles.modalLabel}>Nombre detectado / hint</Text>
+          <Text style={styles.modalLabel}>Marca</Text>
           <TextInput
             style={styles.modalInput}
-            value={nameHint}
-            onChangeText={setNameHint}
-            placeholder="Texto del escaneo o reporte"
+            value={brand}
+            onChangeText={setBrand}
+            placeholder="Marca del producto"
             placeholderTextColor={homeColors.textMuted}
-            maxLength={120}
-            accessibilityLabel="Nombre detectado"
+            maxLength={80}
+            accessibilityLabel="Marca"
           />
 
-          <Text style={styles.modalLabel}>ID interno del super</Text>
+          <Text style={styles.modalLabel}>Precio en góndola</Text>
           <TextInput
             style={styles.modalInput}
-            value={idProducto}
-            onChangeText={setIdProducto}
-            placeholder="ID del producto en el super"
+            value={priceInput}
+            onChangeText={(text) => setPriceInput(normalizePriceInput(text))}
+            placeholder="0"
             placeholderTextColor={homeColors.textMuted}
-            autoCapitalize="none"
-            accessibilityLabel="ID interno del supermercado"
+            keyboardType="decimal-pad"
+            accessibilityLabel="Precio en góndola"
           />
+          {parsedPrice > 0 ? (
+            <Text style={styles.cardPrice}>{formatCurrency(parsedPrice)}</Text>
+          ) : null}
+
+          {userProposal ? (
+            <Text style={styles.modalHelp}>
+              Subí tu foto con fondo blanco desde Cámara/Galería. Al aprobar, se publica en el catálogo
+              global para futuros escaneos.
+            </Text>
+          ) : null}
+
+          {!userProposal ? (
+            <>
+              <Text style={styles.modalLabel}>Nombre detectado / hint</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={nameHint}
+                onChangeText={setNameHint}
+                placeholder="Texto del escaneo o reporte"
+                placeholderTextColor={homeColors.textMuted}
+                maxLength={120}
+                accessibilityLabel="Nombre detectado"
+              />
+
+              <Text style={styles.modalLabel}>ID interno del super</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={idProducto}
+                onChangeText={setIdProducto}
+                placeholder="ID del producto en el super"
+                placeholderTextColor={homeColors.textMuted}
+                autoCapitalize="none"
+                accessibilityLabel="ID interno del supermercado"
+              />
+            </>
+          ) : null}
 
           <View style={styles.modalActions}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Guardar cambios sin aplicar"
               onPress={withClickSound(() => void onSave(edits))}
-              disabled={saving}
+              disabled={busy}
               style={({ pressed }) => [
                 styles.modalSaveBtn,
-                pressed && !saving && styles.pressed,
-                saving && styles.disabled,
+                pressed && !busy && styles.pressed,
+                busy && styles.disabled,
               ]}
             >
               {saving ? (
@@ -767,11 +1012,11 @@ function PendingReviewEditModal({
               accessibilityRole="button"
               accessibilityLabel="Guardar y cargar a la base de datos"
               onPress={withClickSound(() => void onSaveAndApply(edits))}
-              disabled={saving || !canApply}
+              disabled={busy || !canApply}
               style={({ pressed }) => [
                 styles.modalApplyBtn,
-                pressed && !saving && canApply && styles.pressed,
-                (saving || !canApply) && styles.disabled,
+                pressed && !busy && canApply && styles.pressed,
+                (busy || !canApply) && styles.disabled,
               ]}
             >
               {saving ? (
@@ -780,11 +1025,12 @@ function PendingReviewEditModal({
                 <Ionicons name="cloud-upload-outline" size={16} color="#FFFFFF" />
               )}
               <Text style={styles.modalApplyText}>
-                {saving ? 'Aplicando…' : 'Guardar y aplicar'}
+                {saving ? 'Aplicando…' : userProposal ? 'Aprobar y publicar' : 'Guardar y aplicar'}
               </Text>
             </Pressable>
           </View>
         </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -811,6 +1057,7 @@ function ReviewCard({
   const styles = useMemo(() => createRevisionStyles(m), [m]);
   const displayName = getPendingReviewDisplayName(item);
   const proposalLines = describePendingUserProposal(item);
+  const userProposal = isUserProductProposal(item);
 
   return (
     <View style={menuContentStyles.card}>
@@ -818,6 +1065,12 @@ function ReviewCard({
         <Text style={[styles.cardTitle, { flex: 1 }]} numberOfLines={2}>
           {displayName}
         </Text>
+        {userProposal ? (
+          <View style={styles.confirmedBadge}>
+            <Ionicons name="person-outline" size={14} color={homeColors.logoRing} />
+            <Text style={[styles.confirmedText, { color: homeColors.logoRing }]}>Usuario</Text>
+          </View>
+        ) : null}
         {confirmed ? (
           <View style={styles.confirmedBadge}>
             <Ionicons name="checkmark-circle" size={14} color="#059669" />
@@ -850,6 +1103,18 @@ function ReviewCard({
         Supermercado: {item.supermarketName ?? item.supermarketId}
       </Text>
 
+      {item.brand ? (
+        <Text style={styles.cardMeta}>Marca: {item.brand}</Text>
+      ) : null}
+
+      {item.price && item.price > 0 ? (
+        <Text style={styles.cardPrice}>Precio góndola: {formatCurrency(item.price)}</Text>
+      ) : null}
+
+      {item.imageUrl ? (
+        <Image source={{ uri: item.imageUrl }} style={styles.cardPreviewImage} resizeMode="contain" />
+      ) : null}
+
       {item.productName && item.nameHint && item.nameHint !== item.productName ? (
         <Text style={styles.cardHint} numberOfLines={2}>
           Nombre en escaneo: {item.nameHint}
@@ -865,6 +1130,8 @@ function ReviewCard({
 
       {item.id_producto ? (
         <Text style={styles.cardMeta}>ID interno del super: {item.id_producto}</Text>
+      ) : userProposal ? (
+        <Text style={styles.cardMeta}>Se publicará con EAN {item.ean} como ID de catálogo</Text>
       ) : (
         <Text style={styles.cardWarn}>Sin ID vinculado aún (vinculá manual desde la app)</Text>
       )}
@@ -885,7 +1152,7 @@ function ReviewCard({
               ]}
             >
               <Ionicons name="create-outline" size={14} color={homeColors.text} />
-              <Text style={styles.modifyText}>Modificar</Text>
+              <Text style={styles.modifyText}>{userProposal ? 'Revisar' : 'Modificar'}</Text>
             </Pressable>
           ) : null}
 
@@ -894,20 +1161,22 @@ function ReviewCard({
               accessibilityRole="button"
               accessibilityLabel={`Aplicar asociación para EAN ${item.ean}`}
               onPress={withClickSound(onApply)}
-              disabled={applying || dismissing}
+              disabled={applying || dismissing || (!userProposal && !item.id_producto)}
               style={({ pressed }) => [
                 styles.actionBtn,
                 styles.applyBtn,
                 pressed && !applying && !dismissing && styles.pressed,
-                (applying || dismissing) && styles.disabled,
+                (applying || dismissing || (!userProposal && !item.id_producto)) && styles.disabled,
               ]}
             >
               {applying ? (
                 <ActivityIndicator size="small" color="#FFFFFF" />
               ) : (
-                <Ionicons name="link-outline" size={14} color="#FFFFFF" />
+                <Ionicons name={userProposal ? 'checkmark-done-outline' : 'link-outline'} size={14} color="#FFFFFF" />
               )}
-              <Text style={styles.applyText}>{applying ? 'Aplicando…' : 'Aplicar'}</Text>
+              <Text style={styles.applyText}>
+                {applying ? 'Aplicando…' : userProposal ? 'Aprobar' : 'Aplicar'}
+              </Text>
             </Pressable>
           ) : null}
         </View>

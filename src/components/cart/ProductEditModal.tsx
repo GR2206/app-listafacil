@@ -286,6 +286,13 @@ export function ProductEditModal({
               />
             </View>
 
+            {!item.isManual ? (
+              <Text style={[styles.priceScopeNote, { color: theme.textMuted }]}>
+                Cambiar el precio acá solo afecta tu lista personal. No modifica la base de datos del
+                supermercado.
+              </Text>
+            ) : null}
+
           </View>
 
 
@@ -524,6 +531,13 @@ const styles = StyleSheet.create({
 
     textAlign: 'center',
 
+  },
+
+  priceScopeNote: {
+    fontSize: typography.caption,
+    lineHeight: 16,
+    textAlign: 'center',
+    marginTop: 4,
   },
 
   okBtn: {

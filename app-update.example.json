@@ -1,6 +1,6 @@
 {
-  "androidMinVersionCode": 9,
-  "androidLatestVersionCode": 10,
+  "androidMinVersionCode": 10,
+  "androidLatestVersionCode": 11,
   "forceUpdate": false,
   "title": "Nueva versión de Lista Fácil",
   "message": "Hay una actualización disponible. Tocá Actualizar para instalar la build que te compartimos.",

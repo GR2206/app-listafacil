@@ -21,6 +21,7 @@ import { formatCurrency } from '@/utils/formatCurrency';
 import { radii } from '@/theme';
 import { cartCompact as c, cartListColors as lc } from '@/theme/cartCompact';
 import { withClickSound } from '@/utils/withClickSound';
+import { UserProductProposalModal } from '@/components/cart/UserProductProposalModal';
 
 import type { Product } from '@/types';
 
@@ -58,6 +59,8 @@ export function ScanNotFoundBanner({
   const [results, setResults] = useState<Product[]>([]);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [proposalOpen, setProposalOpen] = useState(false);
+  const [proposalSubmitted, setProposalSubmitted] = useState(false);
 
   const handleReport = async () => {
     if (submitting || reported) return;
@@ -190,15 +193,36 @@ export function ScanNotFoundBanner({
               </Text>
             ) : null}
 
-            {reported ? (
+            {reported || proposalSubmitted ? (
               <Text style={[styles.queuedText, { color: '#059669' }]}>
-                Agregado a la lista de revisión. El bot lo buscará con prioridad.
+                {proposalSubmitted
+                  ? 'Producto enviado para revisión. Ya está en tu lista de compras.'
+                  : 'Agregado a la lista de revisión. El bot lo buscará con prioridad.'}
               </Text>
             ) : (
               <Text style={[styles.hint, { color: lc.textMuted }]}>
-                Se intentó código, variantes EAN y nombre antes de avisar.
+                Si es un producto nuevo (no está en Lista Fácil), podés cargarlo con foto, nombre,
+                marca y precio para que un admin lo revise.
               </Text>
             )}
+
+            {!reported && !proposalSubmitted ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Cargar producto manualmente con foto"
+                onPress={withClickSound(() => setProposalOpen(true))}
+                style={({ pressed }) => [
+                  styles.proposeBtn,
+                  { backgroundColor: theme.primary },
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Ionicons name="add-circle-outline" size={14} color={theme.textOnPrimary} />
+                <Text style={[styles.proposeText, { color: theme.textOnPrimary }]}>
+                  Cargar producto
+                </Text>
+              </Pressable>
+            ) : null}
           </>
         ) : (
           <>
@@ -326,6 +350,21 @@ export function ScanNotFoundBanner({
           <Ionicons name="close" size={18} color={lc.textMuted} />
         </Pressable>
       </View>
+
+      <UserProductProposalModal
+        visible={proposalOpen}
+        barcode={barcode}
+        supermarketId={supermarketId}
+        supermarketName={supermarketName}
+        nameHint={nameHint}
+        onClose={() => setProposalOpen(false)}
+        onSubmitted={(product) => {
+          setProposalOpen(false);
+          setProposalSubmitted(true);
+          onProductSelected(product);
+          onDismiss();
+        }}
+      />
     </View>
   );
 }
@@ -435,6 +474,20 @@ const styles = StyleSheet.create({
   },
   reportText: {
     fontSize: 10,
+    fontWeight: '800',
+  },
+  proposeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radii.sm,
+    marginTop: 2,
+  },
+  proposeText: {
+    fontSize: 11,
     fontWeight: '800',
   },
   pressed: {
