@@ -33,7 +33,9 @@ export interface PendingReviewItem {
 }
 
 export function isUserProductProposal(item: PendingReviewItem): boolean {
-  return item.proposalType === 'new_product' || item.source === 'user_proposal';
+  if (item.proposalType === 'new_product' || item.source === 'user_proposal') return true;
+  if (item.id_producto) return false;
+  return Boolean(item.productName && (item.brand || item.price || item.imageUrl));
 }
 
 export function getPendingReviewDisplayName(item: PendingReviewItem): string {

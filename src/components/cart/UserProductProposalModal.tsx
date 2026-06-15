@@ -180,18 +180,16 @@ export function UserProductProposalModal({
               <Text style={[styles.title, { color: theme.text }]}>Cargar producto</Text>
             </View>
 
-            <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-              EAN {barcode}
-              {supermarketName ? ` · ${supermarketName}` : ''}
-            </Text>
+            <View style={[styles.eanBadge, { borderColor: theme.primary, backgroundColor: theme.surfaceElevated }]}>
+              <Text style={[styles.eanLabel, { color: theme.primary }]}>Código EAN (no se modifica)</Text>
+              <Text style={[styles.eanValue, { color: theme.text }]} selectable>
+                {barcode}
+              </Text>
+            </View>
 
             <Text style={[styles.help, { color: theme.textMuted }]}>
-              Solo para productos que no existen en Lista Fácil. Un admin revisará y, si aprueba, lo
-              dará de alta en el catálogo para futuros escaneos.
-            </Text>
-            <Text style={[styles.help, { color: theme.textMuted }]}>
-              El precio que cargás acá es para tu lista de esta compra. Si después editás el precio de
-              un producto ya cargado, ese cambio queda solo en tu lista y no modifica la base de datos.
+              Completá los datos del producto que escaneaste. Un admin revisará tu propuesta antes de
+              publicarla en el catálogo para todos.
             </Text>
 
             <View style={styles.photoSection}>
@@ -257,7 +255,7 @@ export function UserProductProposalModal({
             </View>
 
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>Marca</Text>
+              <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>Marca (opcional)</Text>
               <TextInput
                 style={[
                   styles.input,
@@ -269,7 +267,7 @@ export function UserProductProposalModal({
                 ]}
                 value={brand}
                 onChangeText={setBrand}
-                placeholder="Ej: La Serenisima"
+                placeholder="Ej: La Serenísima — dejalo vacío si no lo sabés"
                 placeholderTextColor={theme.textMuted}
                 maxLength={80}
                 autoCapitalize="words"
@@ -278,7 +276,12 @@ export function UserProductProposalModal({
             </View>
 
             <View style={styles.section}>
-              <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>Precio en góndola</Text>
+              <Text style={[styles.sectionLabel, { color: theme.textMuted }]}>
+                Precio en góndola (obligatorio)
+              </Text>
+              <Text style={[styles.fieldHint, { color: theme.textMuted }]}>
+                El valor que figura en la etiqueta del super, no el total de tu compra.
+              </Text>
               <TextInput
                 style={[
                   styles.input,
@@ -385,6 +388,29 @@ const styles = StyleSheet.create({
   help: {
     fontSize: 12,
     lineHeight: 16,
+  },
+  fieldHint: {
+    fontSize: 11,
+    lineHeight: 14,
+    marginBottom: 2,
+  },
+  eanBadge: {
+    borderWidth: 1.5,
+    borderRadius: radii.md,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 2,
+  },
+  eanLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  eanValue: {
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: 0.4,
   },
   photoSection: {
     gap: 8,

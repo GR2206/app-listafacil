@@ -15,7 +15,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSupermarketTheme } from '@/context/ThemeContext';
 import { saveEanProductMapping } from '@/services/eanProductMapping';
 import { searchProductsOnSupermarketWeb } from '@/services/supermarketProductSearch';
-import { reportPendingProduct } from '@/services/pendingProductReport';
 import { markPendingProductLinked } from '@/services/pendingProductsAdmin';
 import { formatCurrency } from '@/utils/formatCurrency';
 import { radii } from '@/theme';
@@ -47,12 +46,9 @@ export function ScanNotFoundBanner({
   pendingQueued = false,
   nameSearchUsed = false,
   onDismiss,
-  onReported,
   onProductSelected,
 }: ScanNotFoundBannerProps) {
   const { theme } = useSupermarketTheme();
-  const [submitting, setSubmitting] = useState(false);
-  const [reported, setReported] = useState(pendingQueued);
   const [mode, setMode] = useState<BannerMode>('alert');
   const [query, setQuery] = useState(nameHint ?? '');
   const [searching, setSearching] = useState(false);
@@ -62,25 +58,9 @@ export function ScanNotFoundBanner({
   const [proposalOpen, setProposalOpen] = useState(false);
   const [proposalSubmitted, setProposalSubmitted] = useState(false);
 
-  const handleReport = async () => {
-    if (submitting || reported) return;
-    setSubmitting(true);
-
-    const ok = await reportPendingProduct({
-      barcode,
-      supermarketId,
-      supermarketName,
-      nameHint: query || nameHint,
-      source: 'scan',
-      priority: true,
-    });
-
-    setSubmitting(false);
-    if (!ok) return;
-
-    setReported(true);
-    onReported?.();
-  };
+  const openProposal = useCallback(() => {
+    setProposalOpen(true);
+  }, []);
 
   const openSearch = useCallback(() => {
     setMode('search');
@@ -106,7 +86,7 @@ export function ScanNotFoundBanner({
       setResults(found);
       setMode('results');
       if (found.length === 0) {
-        setSearchError('Sin resultados en el catálogo de este supermercado.');
+        setSearchError('Sin resultados en la web de este super. Podés agregar el producto manualmente.');
       }
     } catch {
       setSearchError('No se pudo buscar. Revisá tu conexión.');
@@ -156,6 +136,22 @@ export function ScanNotFoundBanner({
     [barcode, onDismiss, onProductSelected, savingId, supermarketId, supermarketName]
   );
 
+  const renderAddProductButton = (compact = false) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Agregar producto manualmente con foto"
+      onPress={withClickSound(openProposal)}
+      style={({ pressed }) => [
+        compact ? styles.proposeBtnCompact : styles.proposeBtn,
+        { backgroundColor: theme.primary },
+        pressed && styles.pressed,
+      ]}
+    >
+      <Ionicons name="add-circle-outline" size={compact ? 13 : 15} color={theme.textOnPrimary} />
+      <Text style={[styles.proposeText, { color: theme.textOnPrimary }]}>Agregar producto</Text>
+    </Pressable>
+  );
+
   return (
     <View
       style={[
@@ -172,20 +168,14 @@ export function ScanNotFoundBanner({
       <View style={styles.content}>
         {mode === 'alert' ? (
           <>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Buscar producto manualmente por nombre"
-              onPress={withClickSound(openSearch)}
-            >
-              <Text style={[styles.title, styles.titleLink, { color: lc.text }]}>
-                Producto no registrado
-              </Text>
-              <Text style={[styles.tapHint, { color: theme.primary }]}>
-                Tocá acá para buscar por nombre
-              </Text>
-            </Pressable>
+            <Text style={[styles.title, { color: lc.text }]}>Producto no registrado</Text>
 
-            <Text style={[styles.ean, { color: lc.textMuted }]}>EAN: {barcode}</Text>
+            <View style={[styles.eanBadge, { borderColor: theme.primary, backgroundColor: lc.surface }]}>
+              <Text style={[styles.eanLabel, { color: theme.primary }]}>Código EAN</Text>
+              <Text style={[styles.eanValue, { color: lc.text }]} selectable>
+                {barcode}
+              </Text>
+            </View>
 
             {nameSearchUsed && nameHint ? (
               <Text style={[styles.hint, { color: lc.textMuted }]} numberOfLines={2}>
@@ -193,41 +183,53 @@ export function ScanNotFoundBanner({
               </Text>
             ) : null}
 
-            {reported || proposalSubmitted ? (
+            {proposalSubmitted ? (
               <Text style={[styles.queuedText, { color: '#059669' }]}>
-                {proposalSubmitted
-                  ? 'Producto enviado para revisión. Ya está en tu lista de compras.'
-                  : 'Agregado a la lista de revisión. El bot lo buscará con prioridad.'}
+                Producto enviado para revisión. Ya está en tu lista y un admin lo validará antes de
+                publicarlo en el catálogo.
               </Text>
             ) : (
-              <Text style={[styles.hint, { color: lc.textMuted }]}>
-                Si es un producto nuevo (no está en Lista Fácil), podés cargarlo con foto, nombre,
-                marca y precio para que un admin lo revise.
-              </Text>
-            )}
-
-            {!reported && !proposalSubmitted ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Cargar producto manualmente con foto"
-                onPress={withClickSound(() => setProposalOpen(true))}
-                style={({ pressed }) => [
-                  styles.proposeBtn,
-                  { backgroundColor: theme.primary },
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Ionicons name="add-circle-outline" size={14} color={theme.textOnPrimary} />
-                <Text style={[styles.proposeText, { color: theme.textOnPrimary }]}>
-                  Cargar producto
+              <>
+                <Text style={[styles.hint, { color: lc.textMuted }]}>
+                  Este código no está en Lista Fácil. Podés cargarlo con foto, nombre, marca y precio de
+                  góndola, o buscarlo en la web del super.
                 </Text>
-              </Pressable>
-            ) : null}
+
+                {pendingQueued ? (
+                  <Text style={[styles.hint, { color: lc.textMuted }]}>
+                    También lo buscará el sistema en segundo plano.
+                  </Text>
+                ) : null}
+
+                <View style={styles.actionRow}>
+                  {renderAddProductButton()}
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Buscar producto por nombre en la web del super"
+                    onPress={withClickSound(openSearch)}
+                    style={({ pressed }) => [
+                      styles.searchOutlineBtn,
+                      { borderColor: theme.primary },
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Ionicons name="search-outline" size={14} color={theme.primary} />
+                    <Text style={[styles.searchOutlineText, { color: theme.primary }]}>Buscar</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
           </>
         ) : (
           <>
             <Text style={[styles.title, { color: lc.text }]}>Buscar en {supermarketName ?? 'super'}</Text>
-            <Text style={[styles.ean, { color: lc.textMuted }]}>EAN escaneado: {barcode}</Text>
+
+            <View style={[styles.eanBadge, { borderColor: lc.border, backgroundColor: lc.surface }]}>
+              <Text style={[styles.eanLabel, { color: lc.textMuted }]}>EAN escaneado</Text>
+              <Text style={[styles.eanValue, { color: lc.text }]} selectable>
+                {barcode}
+              </Text>
+            </View>
 
             <View style={[styles.searchRow, { borderColor: lc.border }]}>
               <TextInput
@@ -263,6 +265,15 @@ export function ScanNotFoundBanner({
 
             {searchError ? (
               <Text style={[styles.hint, { color: '#B45309' }]}>{searchError}</Text>
+            ) : null}
+
+            {!proposalSubmitted ? (
+              <View style={styles.searchFallbackRow}>
+                <Text style={[styles.hint, { color: lc.textMuted, flex: 1 }]}>
+                  ¿No lo encontrás? Cargalo manualmente:
+                </Text>
+                {renderAddProductButton(true)}
+              </View>
             ) : null}
 
             {mode === 'results' && results.length > 0 ? (
@@ -306,30 +317,6 @@ export function ScanNotFoundBanner({
       </View>
 
       <View style={styles.actions}>
-        {mode === 'alert' && !reported ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Reenviar a lista de revisión"
-            onPress={withClickSound(() => void handleReport())}
-            disabled={submitting}
-            style={({ pressed }) => [
-              styles.reportBtn,
-              { backgroundColor: theme.primary },
-              pressed && !submitting && styles.pressed,
-              submitting && styles.disabled,
-            ]}
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color={theme.textOnPrimary} />
-            ) : (
-              <Ionicons name="cloud-upload-outline" size={14} color={theme.textOnPrimary} />
-            )}
-            <Text style={[styles.reportText, { color: theme.textOnPrimary }]}>
-              {submitting ? 'Enviando…' : 'Reenviar'}
-            </Text>
-          </Pressable>
-        ) : null}
-
         {mode !== 'alert' ? (
           <Pressable
             accessibilityRole="button"
@@ -383,34 +370,84 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    gap: 6,
+    gap: 8,
     minWidth: 0,
   },
   title: {
     fontSize: c.noticeFontSize,
     fontWeight: '800',
   },
-  titleLink: {
-    textDecorationLine: 'underline',
-    textDecorationStyle: 'solid',
+  eanBadge: {
+    borderWidth: 1,
+    borderRadius: radii.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    gap: 2,
   },
-  tapHint: {
-    fontSize: c.clearFontSize,
-    fontWeight: '700',
-    marginTop: 2,
+  eanLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
-  ean: {
-    fontSize: c.clearFontSize,
-    fontWeight: '600',
+  eanValue: {
+    fontSize: c.clearFontSize + 1,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   hint: {
     fontSize: c.clearFontSize,
-    lineHeight: 14,
+    lineHeight: 15,
   },
   queuedText: {
     fontSize: c.clearFontSize,
-    lineHeight: 14,
+    lineHeight: 15,
     fontWeight: '700',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 2,
+  },
+  proposeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radii.sm,
+  },
+  proposeBtnCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radii.sm,
+  },
+  proposeText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  searchOutlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radii.sm,
+    borderWidth: 1.5,
+  },
+  searchOutlineText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  searchFallbackRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
   },
   searchRow: {
     flexDirection: 'row',
@@ -463,32 +500,6 @@ const styles = StyleSheet.create({
   actions: {
     alignItems: 'flex-end',
     gap: 6,
-  },
-  reportBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: radii.sm,
-  },
-  reportText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  proposeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: radii.sm,
-    marginTop: 2,
-  },
-  proposeText: {
-    fontSize: 11,
-    fontWeight: '800',
   },
   pressed: {
     opacity: 0.88,

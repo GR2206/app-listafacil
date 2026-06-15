@@ -907,17 +907,21 @@ function PendingReviewEditModal({
             </Text>
           ) : null}
 
-          <Text style={styles.modalLabel}>URL de imagen (opcional)</Text>
-          <TextInput
-            style={styles.modalInput}
-            value={imageUrl}
-            onChangeText={setImageUrl}
-            placeholder="Se completa al subir, o pegá una URL"
-            placeholderTextColor={homeColors.textMuted}
-            autoCapitalize="none"
-            autoCorrect={false}
-            accessibilityLabel="URL de imagen"
-          />
+          {!userProposal ? (
+            <>
+              <Text style={styles.modalLabel}>URL de imagen (opcional)</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={imageUrl}
+                onChangeText={setImageUrl}
+                placeholder="https://…"
+                placeholderTextColor={homeColors.textMuted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                accessibilityLabel="URL de imagen"
+              />
+            </>
+          ) : null}
 
           <Text style={styles.modalLabel}>Nombre en catálogo</Text>
           <TextInput
