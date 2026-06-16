@@ -69,9 +69,11 @@ export async function reportUserProductProposal(
 
   if (!barcode || !productName || price <= 0) return false;
 
+  const docId = `prop_${barcode}_${Date.now().toString(36)}`;
+
   try {
     await setDoc(
-      doc(db, PENDING_COLLECTION, barcode),
+      doc(db, PENDING_COLLECTION, docId),
       {
         ean: barcode,
         barcode,
@@ -89,6 +91,7 @@ export async function reportUserProductProposal(
         priority: 0,
         scrapePriority: false,
         reportedAt: serverTimestamp(),
+        reportedAtClient: new Date().toISOString(),
         updatedAt: serverTimestamp(),
       },
       { merge: true }

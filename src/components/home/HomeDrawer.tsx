@@ -18,6 +18,8 @@ import {
 
   Dimensions,
 
+  ScrollView,
+
 } from 'react-native';
 
 
@@ -35,6 +37,7 @@ import { useRouter } from 'expo-router';
 
 
 import { MerchantLoginModal } from '@/components/merchant/MerchantLoginModal';
+import { ShareAppQrFooter } from '@/components/home/ShareAppQrFooter';
 
 import { IS_ADMIN } from '@/config/admin';
 
@@ -189,7 +192,19 @@ export function HomeDrawer({ visible, onClose }: HomeDrawerProps) {
 
           borderRightColor: homeColors.border,
 
+        },
+
+        panelInner: {
+
+          flex: 1,
+
           paddingHorizontal: m.spacingMd,
+
+        },
+
+        menuScroll: {
+
+          flex: 1,
 
         },
 
@@ -333,7 +348,7 @@ export function HomeDrawer({ visible, onClose }: HomeDrawerProps) {
 
                 paddingTop: insets.top + m.spacingMd,
 
-                paddingBottom: insets.bottom + m.spacingMd,
+                paddingBottom: insets.bottom + m.spacingSm,
 
                 transform: [{ translateX: slide }],
 
@@ -342,6 +357,8 @@ export function HomeDrawer({ visible, onClose }: HomeDrawerProps) {
             ]}
 
           >
+
+            <View style={styles.panelInner}>
 
             <View style={styles.panelHeader}>
 
@@ -373,6 +390,8 @@ export function HomeDrawer({ visible, onClose }: HomeDrawerProps) {
 
 
 
+            <ScrollView style={styles.menuScroll} showsVerticalScrollIndicator={false}>
+
             {menuItems.map((item) => (
 
               <Pressable
@@ -398,6 +417,12 @@ export function HomeDrawer({ visible, onClose }: HomeDrawerProps) {
               </Pressable>
 
             ))}
+
+            </ScrollView>
+
+            <ShareAppQrFooter metrics={m} />
+
+            </View>
 
           </Animated.View>
 

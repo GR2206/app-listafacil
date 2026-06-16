@@ -59,3 +59,38 @@ export async function publishApprovedProduct(payload: PublishProductPayload): Pr
     return false;
   }
 }
+
+/** Actualiza solo el precio en catálogo cuando hay consenso de usuarios (producto ya existente o no). */
+export async function publishCrowdPriceUpdate(payload: {
+  barcode: string;
+  supermarketId: string;
+  price: number;
+  productName?: string;
+  consensusCount?: number;
+}): Promise<boolean> {
+  const barcode = payload.barcode.replace(/\D/g, '').padStart(13, '0').slice(-13);
+  const supermarketId = payload.supermarketId.trim();
+  const price = Math.round(payload.price);
+
+  if (!barcode || !supermarketId || price <= 0) return false;
+
+  try {
+    await setDoc(
+      doc(db, COLLECTION, barcode),
+      {
+        barcode,
+        [`Precios.${supermarketId}`]: price,
+        source: 'crowd_consensus',
+        crowdConsensusCount: payload.consensusCount ?? null,
+        crowdUpdatedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        ...(payload.productName ? { Nombre: payload.productName.trim() } : {}),
+      },
+      { merge: true }
+    );
+    return true;
+  } catch (error) {
+    console.warn('[Firestore] No se pudo publicar precio por consenso:', error);
+    return false;
+  }
+}

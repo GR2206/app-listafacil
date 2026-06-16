@@ -52,6 +52,22 @@ service cloud.firestore {
 
     }
 
+    match /Reportes_precio_voto/{docId} {
+
+      allow read: if true;
+
+      allow write: if true;
+
+    }
+
+    match /Consenso_precios_gondola/{docId} {
+
+      allow read: if true;
+
+      allow write: if true;
+
+    }
+
   }
 
 }

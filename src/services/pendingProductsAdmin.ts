@@ -63,6 +63,9 @@ export function describePendingUserProposal(item: PendingReviewItem): string[] {
       lines.push('Incluye foto del producto para revisión.');
     }
     lines.push('Al aprobar, se publicará en el catálogo de Lista Fácil para futuros escaneos.');
+    lines.push(
+      'Esta propuesta llegó desde la app de un usuario (no solo desde tu dispositivo). Cada envío queda como pedido separado.'
+    );
     return lines;
   }
 
@@ -153,19 +156,28 @@ function mapPendingDoc(id: string, data: Record<string, unknown>): PendingReview
   };
 }
 
+function pendingDocRef(item: PendingReviewItem) {
+  return doc(db, PENDING_COLLECTION, item.id);
+}
+
 async function fetchByStatus(status: 'pending' | 'confirmed'): Promise<PendingReviewItem[]> {
   try {
     const snapshot = await getDocs(
       query(
         collection(db, PENDING_COLLECTION),
         where('status', '==', status),
-        limit(80)
+        limit(120)
       )
     );
 
     return snapshot.docs
       .map((docSnap) => mapPendingDoc(docSnap.id, docSnap.data() as Record<string, unknown>))
-      .sort((a, b) => a.ean.localeCompare(b.ean));
+      .sort((a, b) => {
+        const aUser = isUserProductProposal(a) ? 0 : 1;
+        const bUser = isUserProductProposal(b) ? 0 : 1;
+        if (aUser !== bUser) return aUser - bUser;
+        return a.ean.localeCompare(b.ean);
+      });
   } catch (error) {
     console.warn(`[Firestore] No se pudo listar ${status}:`, error);
     return [];
@@ -197,12 +209,11 @@ export interface ApplyPendingResult {
 }
 
 export async function dismissPendingReviewItem(item: PendingReviewItem): Promise<boolean> {
-  const ean = item.ean.replace(/\D/g, '');
-  if (!ean) return false;
+  if (!item.id) return false;
 
   try {
     await setDoc(
-      doc(db, PENDING_COLLECTION, ean),
+      pendingDocRef(item),
       {
         status: 'dismissed',
         dismissedAt: serverTimestamp(),
@@ -221,8 +232,7 @@ export async function updatePendingReviewItem(
   item: PendingReviewItem,
   edits: PendingReviewEdits
 ): Promise<boolean> {
-  const ean = item.ean.replace(/\D/g, '');
-  if (!ean) return false;
+  if (!item.id) return false;
 
   const payload: Record<string, unknown> = {
     updatedAt: serverTimestamp(),
@@ -248,7 +258,7 @@ export async function updatePendingReviewItem(
   }
 
   try {
-    await setDoc(doc(db, PENDING_COLLECTION, ean), payload, { merge: true });
+    await setDoc(pendingDocRef(item), payload, { merge: true });
     return true;
   } catch (error) {
     console.warn('[Firestore] No se pudo actualizar pendiente:', error);
@@ -302,7 +312,7 @@ async function applyUserProductProposal(
 
   try {
     await setDoc(
-      doc(db, PENDING_COLLECTION, ean),
+      pendingDocRef(item),
       {
         status: 'confirmed',
         id_producto: ean,
@@ -383,7 +393,7 @@ export async function applyPendingReviewItem(
 
   try {
     await setDoc(
-      doc(db, PENDING_COLLECTION, ean),
+      pendingDocRef(item),
       {
         status: 'confirmed',
         id_producto,
