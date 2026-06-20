@@ -6,6 +6,11 @@ import {
   recordMerchantAnalyticsEvent,
   setAppSetting,
 } from '@/db/database';
+import {
+  loadRemoteMerchantDashboardStats,
+  mergeRemoteAndLocalDashboardStats,
+  recordRemoteMerchantEvent,
+} from '@/services/merchantAnalyticsRemote';
 
 export type MerchantAnalyticsEvent =
   | 'price_view'
@@ -53,6 +58,11 @@ export async function trackMerchantEvent(
     eventType,
     visitorId,
   });
+  void recordRemoteMerchantEvent({
+    supermarketId,
+    eventType,
+    visitorId,
+  });
 }
 
 export async function trackMerchantProductView(
@@ -70,22 +80,32 @@ export async function trackMerchantProductView(
     productBarcode: barcode,
     productName: productName.trim() || barcode,
   });
+  void recordRemoteMerchantEvent({
+    supermarketId,
+    eventType: 'product_view',
+    visitorId,
+    productBarcode: barcode,
+    productName: productName.trim() || barcode,
+  });
 }
 
 export async function loadMerchantDashboardStats(
   supermarketId: string
 ): Promise<MerchantDashboardStats> {
-  const [today, weeklyPeak, topProducts] = await Promise.all([
+  const [today, weeklyPeak, topProducts, remote] = await Promise.all([
     getMerchantAnalyticsToday(supermarketId),
     getMerchantAnalyticsWeeklyPeak(supermarketId),
     getTopViewedProductsToday(supermarketId, 5),
+    loadRemoteMerchantDashboardStats(supermarketId),
   ]);
 
-  return {
+  const local: MerchantDashboardStats = {
     uniquePriceVisitors: today.uniquePriceVisitors,
     mapsClicks: today.mapsClicks,
     bestPriceWins: today.bestPriceWins,
     weeklyPeak,
     topProducts,
   };
+
+  return mergeRemoteAndLocalDashboardStats(remote, local);
 }

@@ -7,6 +7,11 @@ export interface Supermarket {
   initial?: string;
 }
 
+export interface ProductCatalogPrices {
+  prices: Record<string, number>;
+  syncedAt: Record<string, string>;
+}
+
 export interface Product {
   id: string;
   barcode: string;
@@ -18,6 +23,8 @@ export interface Product {
   updatedAt?: string;
   /** ISO de la última sync de precio para el super consultado */
   priceSyncedAt?: string;
+  /** Precios del catálogo Firestore para todos los supers (un escaneo alcanza) */
+  catalogPrices?: ProductCatalogPrices;
 }
 
 export interface CartLine {

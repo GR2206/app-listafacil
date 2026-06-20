@@ -68,6 +68,38 @@ service cloud.firestore {
 
     }
 
+    match /Metricas_diarias/{docId} {
+
+      allow read: if true;
+
+      allow write: if true;
+
+      match /visitantes/{visitorId} {
+
+        allow read: if true;
+
+        allow write: if true;
+
+      }
+
+      match /productos_vistos/{barcode} {
+
+        allow read: if true;
+
+        allow write: if true;
+
+      }
+
+    }
+
+    match /Listas_compartidas/{listId} {
+
+      allow read: if true;
+
+      allow write: if true;
+
+    }
+
   }
 
 }

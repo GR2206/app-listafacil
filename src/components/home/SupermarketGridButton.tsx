@@ -14,12 +14,10 @@ import {
   buildOrbBreathRange,
   getOrbGlowPhaseOffset,
   getSupermarketNeonColor,
-  ORB_ANIMATION,
   ORB_BREATH_SINE_INPUT,
-  ORB_NEON_GLOW_LAYERS,
-  ORB_PLASMA_RING,
-  ORB_SPARKLE_OFFSETS,
+  type OrbVisualPresetId,
 } from '@/components/home/supermarketOrbTheme';
+import { getOrbVisualPreset } from '@/components/home/supermarketOrbVisualPresets';
 
 interface SupermarketGridButtonProps {
   market: Supermarket;
@@ -28,29 +26,37 @@ interface SupermarketGridButtonProps {
   /** Huella del slot en grilla — conserva espacios entre botones. */
   slotOrbSize?: number;
   onPress: () => void;
+  /** Solo para vista previa: compara actual vs propuesto sin tocar la home. */
+  visualPreset?: OrbVisualPresetId;
 }
 
 const BEZEL_WIDTH = 6;
-const SLOT_PADDING = 12;
 
 function SupermarketGridButtonComponent({
   market,
   orbSize,
   slotOrbSize,
   onPress,
+  visualPreset = 'current',
 }: SupermarketGridButtonProps) {
+  const preset = getOrbVisualPreset(visualPreset);
+  const orbAnimation = preset.animation;
+  const glowLayers = preset.glowLayers;
+  const plasmaRing = preset.plasmaRing;
+  const sparkleOffsets = preset.sparkleOffsets;
+  const slotPadding = preset.grid.slotPadding;
   const neonColor = getSupermarketNeonColor(market.id);
   const footprint = slotOrbSize ?? Math.round(orbSize / HOME_ORB_VISUAL_SCALE);
   const orbRadius = orbSize / 2;
   const bezelSize = orbSize + BEZEL_WIDTH * 2;
-  const plasmaSize = orbSize + ORB_PLASMA_RING.spread * 2;
-  const slotSize = footprint + SLOT_PADDING * 2;
+  const plasmaSize = orbSize + plasmaRing.spread * 2;
+  const slotSize = footprint + slotPadding * 2;
 
   const press = useRef(new Animated.Value(0)).current;
   const breathe = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const duration = ORB_ANIMATION.breatheDurationMs;
+    const duration = orbAnimation.breatheDurationMs;
     const phase = getOrbGlowPhaseOffset(market.id);
     breathe.setValue(phase);
 
@@ -95,7 +101,7 @@ function SupermarketGridButtonComponent({
     fireInstantFeedback({ sound: 'click', haptic: 'selection' });
     Animated.timing(press, {
       toValue: 1,
-      duration: ORB_ANIMATION.pressDurationMs,
+      duration: orbAnimation.pressDurationMs,
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     }).start();
@@ -104,7 +110,7 @@ function SupermarketGridButtonComponent({
   const handlePressOut = () => {
     Animated.timing(press, {
       toValue: 0,
-      duration: ORB_ANIMATION.pressDurationMs,
+      duration: orbAnimation.pressDurationMs,
       easing: Easing.out(Easing.quad),
       useNativeDriver: true,
     }).start();
@@ -113,8 +119,8 @@ function SupermarketGridButtonComponent({
   const breatheGlowScale = breathe.interpolate({
     inputRange: [...ORB_BREATH_SINE_INPUT],
     outputRange: buildOrbBreathRange(
-      ORB_ANIMATION.breatheGlowScaleMin,
-      ORB_ANIMATION.breatheGlowScaleMax
+      orbAnimation.breatheGlowScaleMin,
+      orbAnimation.breatheGlowScaleMax
     ),
     extrapolate: 'clamp',
   });
@@ -122,27 +128,37 @@ function SupermarketGridButtonComponent({
   const breatheGlowOpacity = breathe.interpolate({
     inputRange: [...ORB_BREATH_SINE_INPUT],
     outputRange: buildOrbBreathRange(
-      ORB_ANIMATION.breatheGlowOpacityMin,
-      ORB_ANIMATION.breatheGlowOpacityMax
+      orbAnimation.breatheGlowOpacityMin,
+      orbAnimation.breatheGlowOpacityMax
     ),
     extrapolate: 'clamp',
   });
 
   const pressGlowOpacity = press.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, ORB_ANIMATION.pressGlowOpacity],
+    outputRange: [1, orbAnimation.pressGlowOpacity],
   });
 
   const combinedGlowOpacity = Animated.multiply(breatheGlowOpacity, pressGlowOpacity);
 
   const orbScale = press.interpolate({
     inputRange: [0, 1],
-    outputRange: [1, ORB_ANIMATION.pressScale],
+    outputRange: [1, orbAnimation.pressScale],
   });
 
   const orbTranslateY = press.interpolate({
     inputRange: [0, 1],
-    outputRange: [0, ORB_ANIMATION.pressTranslateY],
+    outputRange: [0, orbAnimation.pressTranslateY],
+  });
+
+  const bezelTranslateY = press.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, orbAnimation.pressBezelInset],
+  });
+
+  const shadowTranslateY = press.interpolate({
+    inputRange: [0, 1],
+    outputRange: [9, 9 + orbAnimation.pressBezelInset * 0.45],
   });
 
   return (
@@ -165,7 +181,7 @@ function SupermarketGridButtonComponent({
             },
           ]}
         >
-          {ORB_NEON_GLOW_LAYERS.map((layer) => {
+          {glowLayers.map((layer) => {
             const glowSize = orbSize + layer.spread * 2;
             const glowOffset = (orbSize - glowSize) / 2;
 
@@ -188,12 +204,12 @@ function SupermarketGridButtonComponent({
           })}
 
           <View pointerEvents="none" style={styles.sparkleField}>
-            {ORB_SPARKLE_OFFSETS.map((sparkle, index) => {
+            {sparkleOffsets.map((sparkle, index) => {
               const position: Record<string, string | number> = {};
-              if ('top' in sparkle) position.top = sparkle.top;
-              if ('bottom' in sparkle) position.bottom = sparkle.bottom;
-              if ('left' in sparkle) position.left = sparkle.left;
-              if ('right' in sparkle) position.right = sparkle.right;
+              if (sparkle.top != null) position.top = sparkle.top;
+              if (sparkle.bottom != null) position.bottom = sparkle.bottom;
+              if (sparkle.left != null) position.left = sparkle.left;
+              if (sparkle.right != null) position.right = sparkle.right;
 
               return (
                 <View
@@ -223,13 +239,14 @@ function SupermarketGridButtonComponent({
             },
           ]}
         >
-          <View
+          <Animated.View
             style={[
               styles.chromeBezel,
               {
                 width: bezelSize,
                 height: bezelSize,
                 borderRadius: bezelSize / 2,
+                transform: [{ translateY: bezelTranslateY }],
               },
             ]}
           />
@@ -241,17 +258,29 @@ function SupermarketGridButtonComponent({
                 width: plasmaSize,
                 height: plasmaSize,
                 borderRadius: plasmaSize / 2,
-                borderWidth: ORB_PLASMA_RING.borderWidth,
-                borderColor: hexToRgba(neonColor, ORB_PLASMA_RING.opacity),
+                borderWidth: plasmaRing.borderWidth,
+                borderColor: hexToRgba(neonColor, plasmaRing.opacity),
+              },
+            ]}
+          />
+          <View
+            pointerEvents="none"
+            style={[
+              styles.plasmaHairline,
+              {
+                width: plasmaSize - 4,
+                height: plasmaSize - 4,
+                borderRadius: (plasmaSize - 4) / 2,
               },
             ]}
           />
 
-          <View
+          <Animated.View
             style={[
               styles.dropShadow,
               { width: orbSize, height: orbSize, borderRadius: orbRadius },
               Platform.OS === 'ios' && styles.dropShadowIos,
+              { transform: [{ translateX: -4 }, { translateY: shadowTranslateY }] },
             ]}
           />
 
@@ -266,8 +295,8 @@ function SupermarketGridButtonComponent({
               Platform.OS === 'ios' && {
                 shadowColor: neonColor,
                 shadowOffset: { width: 0, height: 4 },
-                shadowOpacity: ORB_ANIMATION.neonShadowOpacity,
-                shadowRadius: ORB_ANIMATION.neonShadowRadius,
+                shadowOpacity: orbAnimation.neonShadowOpacity,
+                shadowRadius: orbAnimation.neonShadowRadius,
               },
             ]}
           >
@@ -304,6 +333,52 @@ function SupermarketGridButtonComponent({
             <View
               pointerEvents="none"
               style={[styles.glassRim, { width: orbSize, height: orbSize, borderRadius: orbRadius }]}
+            />
+
+            <View
+              pointerEvents="none"
+              style={[
+                styles.buttonHairlineOuter,
+                { width: orbSize, height: orbSize, borderRadius: orbRadius },
+              ]}
+            />
+            <View
+              pointerEvents="none"
+              style={[
+                styles.buttonHairlineInner,
+                {
+                  width: orbSize - 4,
+                  height: orbSize - 4,
+                  borderRadius: orbRadius - 2,
+                },
+              ]}
+            />
+            <View
+              pointerEvents="none"
+              style={[
+                styles.buttonTopCap,
+                {
+                  width: orbSize * 0.74,
+                  height: orbSize * 0.3,
+                  borderTopLeftRadius: orbSize * 0.37,
+                  borderTopRightRadius: orbSize * 0.37,
+                  top: orbSize * 0.05,
+                },
+              ]}
+            />
+            <View
+              pointerEvents="none"
+              style={[
+                styles.buttonEquatorLine,
+                { width: orbSize * 0.78, top: orbSize * 0.48 },
+              ]}
+            />
+            <View
+              pointerEvents="none"
+              style={[
+                styles.buttonBaseLine,
+                { width: orbSize * 0.62, bottom: orbSize * 0.09 },
+              ]}
             />
 
             <SupermarketOrbLogo marketId={market.id} orbSize={orbSize} />
@@ -351,21 +426,26 @@ const styles = StyleSheet.create({
   },
   chromeBezel: {
     position: 'absolute',
-    backgroundColor: '#1C1C22',
-    borderWidth: 3,
-    borderTopColor: '#B8B8C8',
-    borderLeftColor: '#9090A0',
-    borderBottomColor: '#303038',
-    borderRightColor: '#505058',
+    backgroundColor: '#1A1A20',
+    borderWidth: 3.5,
+    borderTopColor: '#D8D8E4',
+    borderLeftColor: '#A8A8B8',
+    borderBottomColor: '#24242C',
+    borderRightColor: '#484850',
   },
   plasmaRing: {
     position: 'absolute',
     backgroundColor: 'transparent',
   },
+  plasmaHairline: {
+    position: 'absolute',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.42)',
+    backgroundColor: 'transparent',
+  },
   dropShadow: {
     position: 'absolute',
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    transform: [{ translateX: -4 }, { translateY: 9 }],
     zIndex: 0,
   },
   dropShadowIos: {
@@ -420,10 +500,48 @@ const styles = StyleSheet.create({
   glassRim: {
     position: 'absolute',
     borderWidth: 1.5,
-    borderTopColor: 'rgba(255, 255, 255, 0.45)',
-    borderLeftColor: 'rgba(255, 255, 255, 0.25)',
-    borderBottomColor: 'rgba(0, 0, 0, 0.8)',
-    borderRightColor: 'rgba(0, 0, 0, 0.62)',
+    borderTopColor: 'rgba(255, 255, 255, 0.55)',
+    borderLeftColor: 'rgba(255, 255, 255, 0.3)',
+    borderBottomColor: 'rgba(0, 0, 0, 0.85)',
+    borderRightColor: 'rgba(0, 0, 0, 0.68)',
     zIndex: 7,
+  },
+  buttonHairlineOuter: {
+    position: 'absolute',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.78)',
+    zIndex: 9,
+  },
+  buttonHairlineInner: {
+    position: 'absolute',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.24)',
+    zIndex: 9,
+  },
+  buttonTopCap: {
+    position: 'absolute',
+    alignSelf: 'center',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderLeftWidth: StyleSheet.hairlineWidth,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255, 255, 255, 0.92)',
+    borderLeftColor: 'rgba(255, 255, 255, 0.38)',
+    borderRightColor: 'rgba(255, 255, 255, 0.38)',
+    backgroundColor: 'transparent',
+    zIndex: 8,
+  },
+  buttonEquatorLine: {
+    position: 'absolute',
+    alignSelf: 'center',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255, 255, 255, 0.14)',
+    zIndex: 8,
+  },
+  buttonBaseLine: {
+    position: 'absolute',
+    alignSelf: 'center',
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    zIndex: 8,
   },
 });

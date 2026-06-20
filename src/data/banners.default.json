@@ -20,7 +20,7 @@
 
     "bottom_banner": {
 
-      "enabled": true,
+      "enabled": false,
 
       "animationUrl": null,
 

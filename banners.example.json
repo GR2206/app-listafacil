@@ -4,18 +4,16 @@
   "banners": {
     "top_banner": {
       "enabled": true,
-      "animationUrl": "https://raw.githubusercontent.com/USER/REPO/main/banners/top-animation.json",
-      "imageUrl": "https://ejemplo.com/banners/top.jpg",
+      "imageUrl": "https://ejemplo.com/banners/home-300x100.png",
       "targetUrl": "https://listafacil.app/ofertas"
     },
     "bottom_banner": {
-      "enabled": true,
-      "animationUrl": "https://raw.githubusercontent.com/USER/REPO/main/banners/bottom-animation.json",
+      "enabled": false,
       "targetUrl": "mailto:publicidad@listafacil.app"
     },
     "list_banner": {
       "enabled": true,
-      "animationUrl": "https://raw.githubusercontent.com/USER/REPO/main/banners/list-animation.json",
+      "imageUrl": "https://ejemplo.com/banners/lista-300x50.png",
       "targetUrl": "https://listafacil.app"
     }
   }

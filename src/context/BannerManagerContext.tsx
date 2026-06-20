@@ -7,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import {
   fetchBannerManifest,
@@ -38,23 +39,21 @@ export function BannerManagerProvider({ children }: { children: ReactNode }) {
   );
   const [manifest, setManifest] = useState<BannerManifest | null>(startupManifest);
 
-  const load = useCallback(async () => {
-    const hadCache = getStartupBannerManifest() !== null;
-
-    if (!hadCache) {
+  const load = useCallback(async (forceRefresh = false) => {
+    if (!getStartupBannerManifest()) {
       setIsLoading(true);
       setIsReady(false);
     }
 
     try {
-      const { manifest: nextManifest, fromRemote } = await fetchBannerManifest();
+      const { manifest: nextManifest, fromRemote } = await fetchBannerManifest({
+        forceRefresh,
+      });
       setManifest(nextManifest);
       setUsedFallbackManifest(!fromRemote);
-      if (!hadCache) {
-        await prefetchManifestImages(nextManifest);
-      }
+      await prefetchManifestImages(nextManifest);
     } catch {
-      const { manifest: nextManifest } = await fetchBannerManifest();
+      const { manifest: nextManifest } = await fetchBannerManifest({ forceRefresh: true });
       setManifest(nextManifest);
       setUsedFallbackManifest(true);
     } finally {
@@ -64,7 +63,18 @@ export function BannerManagerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void load();
+    void load(true);
+  }, [load]);
+
+  useEffect(() => {
+    const onAppStateChange = (state: AppStateStatus) => {
+      if (state === 'active') {
+        void load(true);
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', onAppStateChange);
+    return () => subscription.remove();
   }, [load]);
 
   const getBanner = useCallback(
@@ -96,7 +106,7 @@ export function BannerManagerProvider({ children }: { children: ReactNode }) {
       usedFallbackManifest,
       manifest,
       getBanner,
-      reload: load,
+      reload: () => load(true),
     }),
     [isLoading, isReady, usedFallbackManifest, manifest, getBanner, load]
   );

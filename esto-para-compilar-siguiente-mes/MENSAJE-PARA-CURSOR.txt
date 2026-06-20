@@ -1,0 +1,17 @@
+Hola Cursor. Necesito compilar la versión 1.6.6 de Lista Fácil (Android production AAB).
+
+Contexto obligatorio:
+- Proyecto: E:\LISTAFACILAPP\lista-compras-scanner
+- Versión en app.json: 1.6.6
+- versionCode EAS esperado: 19
+- Cuenta Expo: g2206
+- Firebase: scanner-gondola
+- Leé toda la carpeta: esto-para-compilar-siguiente-mes (RELEASE-1.6.6.md, CHECKLIST-1-JULIO.md, GIST-Y-FIREBASE.md)
+- NO pierdas cambios locales: todo el trabajo de junio debe ir en el build
+- Firestore rules ya publicadas manualmente en consola
+- Después del build exitoso: decime versión, versionCode, link AAB y qué poner en el Gist app-update.json
+
+Ejecutá:
+npx eas-cli build --platform android --profile production --non-interactive
+
+No hagas commit ni push salvo que yo lo pida.

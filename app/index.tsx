@@ -43,8 +43,6 @@ import {
 import {
   getHomeGridMetrics,
   getHomeGridRows,
-  HOME_GRID_COL_GAP,
-  HOME_GRID_ROW_GAP,
 } from '@/components/home/homeGridLayout';
 
 export default function SupermarketSelectScreen() {
@@ -54,7 +52,7 @@ export default function SupermarketSelectScreen() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const { width: screenWidth } = useWindowDimensions();
-  const { gridWidth, orbSize, slotOrbSize } = getHomeGridMetrics(screenWidth);
+  const { gridWidth, orbSize, slotOrbSize, colGap, rowGap } = getHomeGridMetrics(screenWidth);
   const gridRows = getHomeGridRows(MOCK_SUPERMARKETS);
   const onSelect = async (market: Supermarket) => {
     void logSupermarketClick(market.id, market.name, 'grid');
@@ -86,11 +84,11 @@ export default function SupermarketSelectScreen() {
         </View>
 
         <View style={styles.gridZone}>
-          <View style={[styles.grid, { width: gridWidth, rowGap: HOME_GRID_ROW_GAP }]}>
+          <View style={[styles.grid, { width: gridWidth, rowGap }]}>
             {gridRows.map((row, rowIndex) => (
               <View
                 key={`row-${rowIndex}`}
-                style={[styles.gridRow, { columnGap: HOME_GRID_COL_GAP }]}
+                style={[styles.gridRow, { columnGap: colGap }]}
               >
                 {row.map((market) => (
                   <SupermarketGridButton
@@ -126,6 +124,7 @@ const styles = StyleSheet.create({
     paddingTop: MENU_HEADER_MARGIN_TOP,
     paddingBottom: spacing.xs,
     gap: spacing.sm,
+    minHeight: 100,
   },
   menuBtn: {
     width: 44,

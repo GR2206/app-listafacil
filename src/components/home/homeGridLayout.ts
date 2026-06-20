@@ -1,21 +1,25 @@
 import { spacing } from '@/theme';
 
+import type { OrbGridMetrics, OrbVisualPresetId } from '@/components/home/supermarketOrbVisualPresets';
+import { getOrbVisualPreset } from '@/components/home/supermarketOrbVisualPresets';
+
 /** Grilla 3×2 — tres orbes por fila, centrados */
 export const HOME_GRID_COLS = 3;
-/** −15% sobre gaps anteriores (12 / 26). */
-export const HOME_GRID_COL_GAP = 10;
-export const HOME_GRID_ROW_GAP = 22;
+export const HOME_GRID_COL_GAP = 12;
+export const HOME_GRID_ROW_GAP = 26;
 export const HOME_GRID_MAX_WIDTH = 520;
 export const HOME_GRID_H_PADDING = spacing.lg * 2;
-/** Tamaño base del slot en la grilla (conserva espacios entre celdas). */
 export const HOME_GRID_ORB_SCALE = 0.952;
-/** Escala visual del bloque orbe (logo + botón + destello) dentro del slot. */
 export const HOME_ORB_VISUAL_SCALE = 1.018;
 
-export function getHomeGridMetrics(screenWidth: number) {
+export function getHomeGridMetrics(
+  screenWidth: number,
+  visualPreset: OrbVisualPresetId = 'current'
+) {
+  const grid: OrbGridMetrics = getOrbVisualPreset(visualPreset).grid;
   const gridWidth = Math.min(screenWidth - HOME_GRID_H_PADDING, HOME_GRID_MAX_WIDTH);
   const cellSize = Math.floor(
-    (gridWidth - HOME_GRID_COL_GAP * (HOME_GRID_COLS - 1)) / HOME_GRID_COLS,
+    (gridWidth - grid.colGap * (HOME_GRID_COLS - 1)) / HOME_GRID_COLS
   );
   const slotOrbSize = Math.floor(cellSize * HOME_GRID_ORB_SCALE);
   const orbSize = Math.floor(slotOrbSize * HOME_ORB_VISUAL_SCALE);
@@ -25,6 +29,8 @@ export function getHomeGridMetrics(screenWidth: number) {
     orbSize,
     slotOrbSize,
     itemSize: slotOrbSize,
+    colGap: grid.colGap,
+    rowGap: grid.rowGap,
   };
 }
 

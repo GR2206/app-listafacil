@@ -2,7 +2,7 @@ import { Asset } from 'expo-asset';
 import { Image } from 'expo-image';
 
 import { fetchBannerManifest, prefetchManifestImages } from '@/services/bannerManager';
-import { fetchHomeAppManifest, prefetchHomeBackgroundImage } from '@/services/homeBackgroundManager';
+import { fetchHomeAppManifest, prefetchAppLogoImage, prefetchHomeBackgroundImage } from '@/services/homeBackgroundManager';
 import { preloadAppFonts } from '@/services/preloadAppFonts';
 import { seedMockCatalog } from '@/db/seed';
 import { areSoundsPreloaded, preloadSounds } from '@/services/playSound';
@@ -28,7 +28,7 @@ async function preloadBannerAssets(): Promise<void> {
 
 async function preloadHomeBackgroundAssets(): Promise<void> {
   const { manifest } = await fetchHomeAppManifest();
-  await prefetchHomeBackgroundImage(manifest);
+  await Promise.all([prefetchHomeBackgroundImage(manifest), prefetchAppLogoImage(manifest)]);
 }
 
 async function prepareDatabaseLayer(

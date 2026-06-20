@@ -67,6 +67,8 @@ const BASE_MENU_ITEMS = [
 
   { id: 'mis-compras', label: 'Mis Compras', icon: 'receipt-outline' as const, href: '/mis-compras' },
 
+  { id: 'crear-lista', label: 'Crear Lista compras', icon: 'checkbox-outline' as const, href: '/crear-lista' },
+
   { id: 'reportes', label: 'Mis Reportes', icon: 'flag-outline' as const, href: '/reportes' },
 
   { id: 'zona', label: 'Cambiar de Zona', icon: 'location-outline' as const, href: '/zona' },
@@ -103,6 +105,13 @@ const ADMIN_REVISION_MENU_ITEM = {
 
   href: '/revision-productos',
 
+};
+
+const ORB_PREVIEW_MENU_ITEM = {
+  id: 'orb-preview',
+  label: 'Vista previa botones',
+  icon: 'color-wand-outline' as const,
+  href: '/orb-preview',
 };
 
 
@@ -148,9 +157,14 @@ export function HomeDrawer({ visible, onClose }: HomeDrawerProps) {
 
         ...BASE_MENU_ITEMS.slice(2),
 
+        ...(typeof __DEV__ !== 'undefined' && __DEV__ ? [ORB_PREVIEW_MENU_ITEM] : []),
+
       ]
 
-    : BASE_MENU_ITEMS;
+    : [
+        ...BASE_MENU_ITEMS,
+        ...(typeof __DEV__ !== 'undefined' && __DEV__ ? [ORB_PREVIEW_MENU_ITEM] : []),
+      ];
 
 
 

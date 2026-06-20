@@ -51,7 +51,11 @@ async function mergeRemoteWithLocal(
         : undefined,
   });
 
-  if (resolved.price > 0 || resolved.imageUrl) {
+  const hasCatalogPrices = Boolean(
+    resolved.catalogPrices && Object.values(resolved.catalogPrices.prices).some((price) => price > 0)
+  );
+
+  if (resolved.price > 0 || resolved.imageUrl || hasCatalogPrices) {
     await upsertProduct(resolved);
   }
 

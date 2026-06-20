@@ -3,6 +3,7 @@ import type { UserPriceRecord } from '@/db/userPrices';
 import type { SupermarketSyncStatus } from '@/services/syncStatus';
 import type { CartLine } from '@/types';
 import { logPriceAudit } from '@/utils/priceAuditLog';
+import { resolveEffectiveUnitPriceForItem } from '@/utils/resolvePrice';
 import { readPriceForSupermarket, readSyncTimeForSupermarket } from '@/utils/supermarketPrices';
 import { resolveCartLinesForSupermarket, sumCartTotal } from '@/utils/resolveCartLines';
 
@@ -24,6 +25,13 @@ export interface SmartSavingsResult {
   maxTotal: number;
   winnerSavings: number;
   hasComparableQuotes: boolean;
+}
+
+export interface ScannedProductQuote {
+  supermarketId: string;
+  name: string;
+  unitPrice: number;
+  lineTotal: number;
 }
 
 function countPricedItems(lines: CartLine[]): number {
@@ -135,8 +143,7 @@ export function computeSmartSavings(
     };
   });
 
-  const completeQuotes = quotes.filter((q) => q.isComplete && q.total > 0);
-  const comparable = completeQuotes.length >= 2 ? completeQuotes : quotes.filter((q) => q.pricedItemCount > 0);
+  const comparable = quotes.filter((q) => q.pricedItemCount > 0);
 
   const maxTotal =
     comparable.length > 0 ? Math.max(...comparable.map((q) => q.total)) : 0;
@@ -147,10 +154,9 @@ export function computeSmartSavings(
       quote.pricedItemCount > 0 && maxTotal > quote.total ? maxTotal - quote.total : 0,
   }));
 
-  const winnerPool = completeQuotes.length > 0 ? completeQuotes : comparable;
   const winner =
-    winnerPool.length > 0
-      ? winnerPool.reduce((best, current) => (current.total < best.total ? current : best))
+    comparable.length > 0
+      ? comparable.reduce((best, current) => (current.total < best.total ? current : best))
       : null;
 
   const winnerQuote = winner
@@ -164,4 +170,42 @@ export function computeSmartSavings(
     winnerSavings: winnerQuote?.savingsVsMax ?? 0,
     hasComparableQuotes: comparable.length >= 2,
   };
+}
+
+/** Precio del último producto escaneado en cada super (para comparación puntual). */
+export function computeScannedProductQuotes(
+  barcode: string,
+  quantity: number,
+  pricesByBarcode: Record<string, Record<string, number>>,
+  syncedAtByBarcode: Record<string, Record<string, string>> = {},
+  supermarkets = MOCK_SUPERMARKETS,
+  userPricesByBarcode: Record<string, UserPriceRecord> = {},
+  cartStoredPrice = 0
+): ScannedProductQuote[] {
+  return supermarkets
+    .map((market) => {
+      const catalogPrice = readPriceForSupermarket(
+        pricesByBarcode[barcode] ?? {},
+        market.id,
+        0
+      );
+      const unitPrice = resolveEffectiveUnitPriceForItem({
+        barcode,
+        supermarketId: market.id,
+        pricesByBarcode,
+        syncedAtByBarcode,
+        userPricesByBarcode,
+        catalogPrice,
+        cartStoredPrice,
+      });
+
+      return {
+        supermarketId: market.id,
+        name: market.name,
+        unitPrice,
+        lineTotal: unitPrice * quantity,
+      };
+    })
+    .filter((quote) => quote.unitPrice > 0)
+    .sort((a, b) => a.unitPrice - b.unitPrice);
 }

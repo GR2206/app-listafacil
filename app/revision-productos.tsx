@@ -30,6 +30,7 @@ import {
   dismissAllPendingReviewItems,
   dismissPendingReviewItem,
   getPendingReviewDisplayName,
+  getPendingReviewProposalFields,
   isUserProductProposal,
   listConfirmedReviewProducts,
   listPendingReviewProducts,
@@ -369,6 +370,46 @@ function createRevisionStyles(m: ScaledMenuMetrics) {
       fontWeight: '800',
       color: homeColors.logoRing,
       marginTop: 4,
+    },
+    proposalBox: {
+      marginTop: m.spacingSm,
+      borderWidth: 1,
+      borderColor: homeColors.border,
+      borderRadius: radii.md,
+      backgroundColor: 'rgba(148, 163, 184, 0.08)',
+      paddingHorizontal: m.spacingSm,
+      paddingVertical: m.spacingSm,
+      gap: 6,
+    },
+    proposalBoxTitle: {
+      fontSize: Math.max(9, m.caption - 2),
+      fontWeight: '800',
+      color: homeColors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.35,
+    },
+    proposalFieldRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+    },
+    proposalFieldLabel: {
+      width: 72,
+      fontSize: m.caption,
+      fontWeight: '700',
+      color: homeColors.textMuted,
+    },
+    proposalFieldValue: {
+      flex: 1,
+      fontSize: m.caption,
+      fontWeight: '700',
+      color: homeColors.text,
+      lineHeight: Math.round(m.caption * 1.3),
+    },
+    proposalEmptyHint: {
+      fontSize: Math.max(9, m.caption - 3),
+      color: homeColors.textMuted,
+      fontStyle: 'italic',
     },
     pressed: {
       opacity: 0.88,
@@ -1060,6 +1101,7 @@ function ReviewCard({
   const { styles: menuContentStyles, m } = useMenuContentStyles();
   const styles = useMemo(() => createRevisionStyles(m), [m]);
   const displayName = getPendingReviewDisplayName(item);
+  const proposalFields = getPendingReviewProposalFields(item);
   const proposalLines = describePendingUserProposal(item);
   const userProposal = isUserProductProposal(item);
 
@@ -1107,13 +1149,32 @@ function ReviewCard({
         Supermercado: {item.supermarketName ?? item.supermarketId}
       </Text>
 
-      {item.brand ? (
-        <Text style={styles.cardMeta}>Marca: {item.brand}</Text>
-      ) : null}
+      <View style={styles.proposalBox}>
+        <Text style={styles.proposalBoxTitle}>Datos propuestos por el usuario</Text>
 
-      {item.price && item.price > 0 ? (
-        <Text style={styles.cardPrice}>Precio góndola: {formatCurrency(item.price)}</Text>
-      ) : null}
+        <View style={styles.proposalFieldRow}>
+          <Text style={styles.proposalFieldLabel}>Producto</Text>
+          <Text style={styles.proposalFieldValue}>{proposalFields.productName}</Text>
+        </View>
+
+        <View style={styles.proposalFieldRow}>
+          <Text style={styles.proposalFieldLabel}>Marca</Text>
+          <Text style={styles.proposalFieldValue}>{proposalFields.brand}</Text>
+        </View>
+
+        <View style={styles.proposalFieldRow}>
+          <Text style={styles.proposalFieldLabel}>Precio</Text>
+          <Text style={[styles.proposalFieldValue, proposalFields.priceLabel !== '—' && styles.cardPrice]}>
+            {proposalFields.priceLabel}
+          </Text>
+        </View>
+
+        {!proposalFields.hasProposalData ? (
+          <Text style={styles.proposalEmptyHint}>
+            Todavía no hay nombre, marca ni precio cargados. Podés revisar, completar y aprobar desde Modificar.
+          </Text>
+        ) : null}
+      </View>
 
       {item.imageUrl ? (
         <Image source={{ uri: item.imageUrl }} style={styles.cardPreviewImage} resizeMode="contain" />
@@ -1125,7 +1186,7 @@ function ReviewCard({
         </Text>
       ) : null}
 
-      <Text style={styles.cardLabel}>Qué propone el usuario</Text>
+      <Text style={styles.cardLabel}>Detalle del pedido</Text>
       {proposalLines.map((line) => (
         <Text key={line} style={styles.proposalLine}>
           • {line}

@@ -1,5 +1,5 @@
 /**
- * JSON remoto del fondo de la pantalla principal (Gist home-app.json).
+ * JSON remoto del fondo y logo de la app (Gist home-app.json).
  */
 export const HOME_APP_GIST_URL =
   process.env.EXPO_PUBLIC_HOME_APP_GIST_URL ??

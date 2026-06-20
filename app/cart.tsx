@@ -51,6 +51,7 @@ import { useCartScreenStyles } from '@/hooks/useCartScreenStyles';
 import { useCartListScale } from '@/context/CartListScaleContext';
 import { usePriceChangeHints } from '@/hooks/usePriceChangeHints';
 import { useSmartSavings } from '@/hooks/useSmartSavings';
+import { computeScannedProductQuotes } from '@/services/smartSavingsEngine';
 import { useSupermarketSyncStatus } from '@/hooks/useSupermarketSyncStatus';
 import { openSupermarketInMaps } from '@/data/supermarketMaps';
 import { trackMerchantEvent, trackMerchantProductView } from '@/services/merchantAnalytics';
@@ -205,6 +206,8 @@ function CartScreenContent() {
   const [comparisonDismissed, setComparisonDismissed] = useState(false);
   const [comparisonManualOpen, setComparisonManualOpen] = useState(false);
   const [comparisonAutoDismissUsed, setComparisonAutoDismissUsed] = useState(false);
+  const [lastScannedBarcode, setLastScannedBarcode] = useState<string | null>(null);
+  const [scanFlashKey, setScanFlashKey] = useState(0);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [undoLine, setUndoLine] = useState<CartLine | null>(null);
   const [savedPurchaseShare, setSavedPurchaseShare] =
@@ -264,10 +267,42 @@ function CartScreenContent() {
       setComparisonDismissed(false);
       setComparisonManualOpen(false);
       setComparisonAutoDismissUsed(false);
+      setLastScannedBarcode(null);
+      setScanFlashKey(0);
     }
   }, [items.length]);
 
-  const hasPricedComparison = savings.quotes.some((q) => q.pricedItemCount > 0);
+  const lastScannedProduct = useMemo(() => {
+    if (!lastScannedBarcode) return null;
+
+    const item = items.find((line) => line.barcode === lastScannedBarcode);
+    if (!item) return null;
+
+    const quotes = computeScannedProductQuotes(
+      lastScannedBarcode,
+      item.quantity,
+      pricesByBarcode,
+      syncedAtByBarcode,
+      undefined,
+      userPricesByBarcode,
+      item.unitPrice
+    );
+
+    return {
+      name: item.name,
+      quantity: item.quantity,
+      quotes,
+    };
+  }, [
+    lastScannedBarcode,
+    items,
+    pricesByBarcode,
+    syncedAtByBarcode,
+    userPricesByBarcode,
+  ]);
+
+  const hasPricedComparison =
+    savings.hasComparableQuotes || savings.quotes.some((q) => q.pricedItemCount > 0);
   const showComparisonPanel =
     hasPricedComparison && items.length > 0 && !comparisonDismissed;
 
@@ -337,6 +372,16 @@ function CartScreenContent() {
       setSortMode('chrono');
 
       triggerHighlight(lineId);
+
+      setLastScannedBarcode(product.barcode);
+
+      setComparisonDismissed(false);
+
+      setComparisonManualOpen(false);
+
+      setComparisonAutoDismissUsed(false);
+
+      setScanFlashKey((key) => key + 1);
 
     },
 
@@ -671,6 +716,10 @@ function CartScreenContent() {
             <SmartSavingsPanel
               quotes={savings.quotes}
               winnerId={savings.winner?.supermarketId ?? null}
+              lastScannedProduct={lastScannedProduct}
+              itemsCount={items.length}
+              scanFlashKey={scanFlashKey}
+              rotateOnScan={!comparisonManualOpen}
               onForceRefresh={handleForceRefresh}
               isRefreshing={isForceRefreshing}
               autoDismissMs={comparisonAutoDismissMs}

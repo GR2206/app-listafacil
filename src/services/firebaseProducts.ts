@@ -217,6 +217,29 @@ function readSyncTimeForSupermarket(
   return null;
 }
 
+/** Precios de todos los supers en el documento Firestore (objeto Precios). */
+export function extractCatalogPricesFromFirestore(data: Record<string, unknown>): {
+  prices: Record<string, number>;
+  syncedAt: Record<string, string>;
+} {
+  const prices: Record<string, number> = {};
+  const syncedAt: Record<string, string> = {};
+
+  for (const supermarketId of Object.keys(SUPERMARKET_PRICE_ALIASES)) {
+    const price = readPriceForSupermarket(data, supermarketId);
+    if (price == null || price <= 0) continue;
+
+    prices[supermarketId] = price;
+
+    const syncTime = readSyncTimeForSupermarket(data, supermarketId);
+    if (syncTime) {
+      syncedAt[supermarketId] = syncTime;
+    }
+  }
+
+  return { prices, syncedAt };
+}
+
 function mapFirestoreDoc(
 
   barcode: string,
@@ -258,8 +281,7 @@ function mapFirestoreDoc(
 
 
   const price = readPriceForSupermarket(data, supermarketId);
-
-
+  const catalogPrices = extractCatalogPricesFromFirestore(data);
 
   return {
 
@@ -280,6 +302,8 @@ function mapFirestoreDoc(
     updatedAt: new Date().toISOString(),
 
     priceSyncedAt: readSyncTimeForSupermarket(data, supermarketId) ?? undefined,
+
+    catalogPrices,
 
   };
 

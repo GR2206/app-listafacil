@@ -11,6 +11,9 @@ import {
 } from 'react-native';
 
 import { useBannerManager } from '@/hooks/useBannerManager';
+import { ManagedBannerSlot } from '@/components/banners/ManagedBannerSlot';
+import { hasRemoteBannerCreative } from '@/services/bannerManager';
+import { useAppLogoSource } from '@/components/home/useAppLogoSource';
 import { APP_FONT_FAMILY } from '@/services/preloadAppFonts';
 import { openBannerTarget } from '@/utils/openBannerTarget';
 import { withClickSound } from '@/utils/withClickSound';
@@ -26,8 +29,6 @@ import Svg, {
   Path,
   Stop,
 } from 'react-native-svg';
-
-const LOGO = require('../../../assets/logo_redondeado.png');
 
 const CYAN = '#00E5FF';
 const MAGENTA = '#FF2BD6';
@@ -308,6 +309,25 @@ export function HomeCyberTopBanner({ style }: HomeCyberTopBannerProps) {
   const { getBanner } = useBannerManager();
   const resolved = getBanner('top_banner');
 
+  if (!resolved.enabled) {
+    return null;
+  }
+
+  if (hasRemoteBannerCreative(resolved)) {
+    return <ManagedBannerSlot slot="top_banner" style={style} />;
+  }
+
+  return <HomeCyberTopBannerFallback style={style} targetUrl={resolved.targetUrl} />;
+}
+
+function HomeCyberTopBannerFallback({
+  style,
+  targetUrl,
+}: {
+  style?: StyleProp<ViewStyle>;
+  targetUrl: string | null;
+}) {
+  const logoSource = useAppLogoSource('rounded');
   const [size, setSize] = useState({ width: 0, height: BANNER_MIN_HEIGHT });
 
   const onLayout = useCallback((event: LayoutChangeEvent) => {
@@ -321,15 +341,15 @@ export function HomeCyberTopBanner({ style }: HomeCyberTopBannerProps) {
   const textAreaHeight = Math.max(0, size.height - FRAME_PADDING_V * 2);
 
   const openTarget = useCallback(async () => {
-    await openBannerTarget('top_banner', resolved.targetUrl);
-  }, [resolved.targetUrl]);
+    await openBannerTarget('top_banner', targetUrl);
+  }, [targetUrl]);
 
   return (
     <Pressable
       style={({ pressed }) => [styles.root, pressed && styles.rootPressed, style]}
       onLayout={onLayout}
       onPress={withClickSound(() => void openTarget())}
-      disabled={!resolved.targetUrl}
+      disabled={!targetUrl}
       accessibilityRole="button"
       accessibilityLabel={BANNER_ACCESSIBILITY_LABEL}
       accessibilityHint="Abre el enlace promocional configurado"
@@ -346,7 +366,7 @@ export function HomeCyberTopBanner({ style }: HomeCyberTopBannerProps) {
         <View style={styles.logoColumn}>
           <View style={styles.logoRingOuter}>
             <View style={styles.logoRingInner}>
-              <Image source={LOGO} style={styles.logo} resizeMode="cover" accessibilityIgnoresInvertColors />
+              <Image source={logoSource} style={styles.logo} resizeMode="cover" accessibilityIgnoresInvertColors />
             </View>
           </View>
         </View>

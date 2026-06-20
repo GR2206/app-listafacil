@@ -1,0 +1,62 @@
+Lista de archivos modificados o nuevos (snapshot 20/jun/2026)
+Proyecto: lista-compras-scanner
+Versión objetivo: 1.6.6
+Último commit git: 56d6f8a (v1.6.3) — TODO LO DE ABAJO ESTÁ SOLO EN DISCO LOCAL
+
+=== MODIFICADOS ===
+app.json
+app/_layout.tsx
+app/cart.tsx
+app/comerciante.tsx
+app/index.tsx
+app/revision-productos.tsx
+banners.example.json
+firestore.rules
+home-app.example.json
+package-lock.json
+package.json
+src/components/banners/ListCyberBanner.tsx
+src/components/banners/ManagedBannerSlot.tsx
+src/components/cart/SmartSavingsPanel.tsx
+src/components/home/AppLogoMark.tsx
+src/components/home/HomeCyberTopBanner.tsx
+src/components/home/HomeDrawer.tsx
+src/components/home/SupermarketGridButton.tsx
+src/components/home/homeGridLayout.ts
+src/components/home/supermarketOrbTheme.ts
+src/components/navigation/ThemedStack.tsx
+src/components/splash/PantallaDeBienvenida.js
+src/config/appLinks.ts
+src/config/bannerMedia.ts
+src/config/homeBackground.ts
+src/context/BannerManagerContext.tsx
+src/context/HomeBackgroundContext.tsx
+src/data/banners.default.json
+src/db/database.ts
+src/services/bannerManager.ts
+src/services/firebaseProducts.ts
+src/services/homeBackgroundManager.ts
+src/services/merchantAnalytics.ts
+src/services/pendingProductsAdmin.ts
+src/services/prepareAppResources.ts
+src/services/productLookup.ts
+src/services/smartSavingsEngine.ts
+src/types/homeBackground.ts
+src/types/index.ts
+
+=== NUEVOS (sin commit) ===
+app/crear-lista.tsx
+app/orb-preview.tsx
+assets/1.png
+assets/homemundial2026.png
+plugins/
+src/components/banners/ListBannerNeonGlow.tsx
+src/components/home/supermarketOrbVisualPresets.ts
+src/components/home/useAppLogoSource.ts
+src/config/bannerDimensions.ts
+src/services/merchantAnalyticsRemote.ts
+src/services/sharedShoppingList.ts
+src/types/shoppingList.ts
+
+=== CARPETA ESTA GUÍA ===
+esto-para-compilar-siguiente-mes/  (documentación, no código de la app)

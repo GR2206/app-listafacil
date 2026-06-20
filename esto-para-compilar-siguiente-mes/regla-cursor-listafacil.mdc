@@ -1,0 +1,30 @@
+---
+description: Contexto Lista Fácil — versión, build, Firebase y convenciones del proyecto
+alwaysApply: true
+---
+
+# Lista Fácil — contexto del proyecto
+
+## Proyecto
+- App: Lista Fácil (lista-compras-scanner)
+- Expo SDK 54, package `com.listafacil.app`
+- EAS account: g2206
+- Firebase: scanner-gondola
+- Gist usuario: https://gist.github.com/GR2206/385d2f581dfeea93ee3c35ddcd1314ed
+
+## Versión en curso (julio 2026)
+- Objetivo: **1.6.6**, versionCode **19**
+- Guía completa: carpeta `esto-para-compilar-siguiente-mes/`
+- No commitear salvo que el usuario lo pida explícitamente
+- Builds EAS Free: 30/mes, reset día 1; usar tunnel para pruebas
+
+## Features recientes (1.6.6)
+- Comparación multi-super con un escaneo; SmartSavingsPanel compacto
+- Admin: revisión productos (nombre/marca/precio); dashboard métricas remotas Metricas_diarias
+- Menú Crear Lista compras: crear-lista.tsx, Listas_compartidas, deep link listafacil://crear-lista
+
+## Post-release Play Store
+- Actualizar Gist app-update.json → androidLatestVersionCode 19
+
+## Firestore
+- Reglas en firestore.rules; Metricas_diarias y Listas_compartidas incluidas

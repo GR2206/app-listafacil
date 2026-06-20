@@ -2,8 +2,8 @@
   "expo": {
     "name": "Lista Fácil",
     "slug": "lista-compras-scanner",
-    "version": "1.6.3",
-    "orientation": "portrait",
+    "version": "1.6.6",
+    "orientation": "default",
     "icon": "./assets/logo.png",
     "scheme": "listafacil",
     "userInterfaceStyle": "light",
@@ -103,6 +103,17 @@
       ]
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 35,
+            "targetSdkVersion": 35,
+            "buildToolsVersion": "35.0.0"
+          }
+        }
+      ],
+      "./plugins/withAndroidCompatibility.js",
       "expo-router",
       [
         "expo-camera",
@@ -131,7 +142,8 @@
       "expo-font",
       "expo-sqlite",
       "expo-splash-screen",
-      "@react-native-firebase/app"
+      "@react-native-firebase/app",
+      "expo-build-properties"
     ],
     "extra": {
       "router": {},

@@ -139,12 +139,12 @@ export default function RootLayout() {
   }, [recursosListos, fadeAnim]);
 
   useEffect(() => {
-    if (!recursosListos) return;
+    if (!recursosListos || !mostrarApp) return;
 
     return subscribeToAppUpdateChecks((prompt) => {
       setUpdatePrompt(prompt);
     });
-  }, [recursosListos]);
+  }, [recursosListos, mostrarApp]);
 
   return (
 
@@ -152,20 +152,18 @@ export default function RootLayout() {
 
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
 
-
+      <HomeBackgroundProvider>
 
       {recursosListos ? (
 
         <SafeAreaProvider>
 
           <BannerManagerProvider>
-            <HomeBackgroundProvider>
             <ThemeProvider>
               <CartListScaleProvider>
                 <ThemedStack />
               </CartListScaleProvider>
             </ThemeProvider>
-            </HomeBackgroundProvider>
           </BannerManagerProvider>
 
         </SafeAreaProvider>
@@ -191,6 +189,8 @@ export default function RootLayout() {
         </Animated.View>
 
       ) : null}
+
+      </HomeBackgroundProvider>
 
       {updatePrompt ? (
         <UpdateAvailableModal

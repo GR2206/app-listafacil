@@ -1,4 +1,5 @@
 import * as SQLite from 'expo-sqlite';
+import { MOCK_SUPERMARKETS } from '@/data/mockSupermarkets';
 import type { CartLine, Product } from '@/types';
 import {
   mergeSupermarketPrice,
@@ -512,6 +513,18 @@ export async function upsertProduct(product: Product): Promise<void> {
     );
     pricesMap = sanitized.prices;
     syncedAtMap = sanitized.syncedAt;
+  }
+
+  if (product.catalogPrices) {
+    for (const market of MOCK_SUPERMARKETS) {
+      const price = product.catalogPrices.prices[market.id];
+      if (price == null || price <= 0) continue;
+      pricesMap = mergeSupermarketPrice(pricesMap, market.id, price);
+      const syncedAt = product.catalogPrices.syncedAt[market.id];
+      if (syncedAt) {
+        syncedAtMap = mergeSupermarketSyncTime(syncedAtMap, market.id, syncedAt);
+      }
+    }
   }
 
   if (product.price > 0) {

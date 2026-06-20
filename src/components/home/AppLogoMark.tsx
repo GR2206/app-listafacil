@@ -1,8 +1,7 @@
 import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { homeColors } from '@/theme/home';
-
-const LOGO = require('../../../assets/logo_final.png');
+import { useAppLogoSource } from '@/components/home/useAppLogoSource';
 
 const NEON_CYAN = homeColors.neonBlue;
 const NEON_CYAN_SOFT = homeColors.neonBlueSoft;
@@ -89,6 +88,7 @@ export function AppLogoMark({
   glow,
   style,
 }: AppLogoMarkProps) {
+  const logoSource = useAppLogoSource('final');
   const isSplash = variant === 'splash';
   const resolvedShape = shape ?? (isSplash ? 'squircle' : 'circle');
   const resolvedGlow = glow ?? (isSplash ? 'warm' : 'cyan');
@@ -151,7 +151,7 @@ export function AppLogoMark({
         />
 
         <Image
-          source={LOGO}
+          source={logoSource}
           style={{ width: logoSize, height: logoSize }}
           resizeMode="contain"
           accessibilityIgnoresInvertColors

@@ -15,8 +15,8 @@ import type {
   ResolvedBanner,
 } from '@/types/banner';
 
+import { fetchRemoteJson } from '@/utils/fetchRemoteJson';
 import { isLottieUrl } from '@/utils/isLottieUrl';
-
 import { isValidBannerTargetUrl, isValidHttpUrl } from '@/utils/validateBannerUrl';
 
 
@@ -118,93 +118,59 @@ function normalizeManifest(raw: unknown): BannerManifest {
 
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-
   return new Promise((resolve, reject) => {
-
     const timer = setTimeout(() => reject(new Error('Banner fetch timeout')), timeoutMs);
 
-
-
     promise
-
       .then((value) => {
-
         clearTimeout(timer);
-
         resolve(value);
-
       })
-
       .catch((error) => {
-
         clearTimeout(timer);
-
         reject(error);
-
       });
-
   });
-
 }
 
+export function buildBannerImageUri(url: string, cacheKey: string): string {
+  const base = url.trim();
+  const separator = base.includes('?') ? '&' : '?';
+  return `${base}${separator}v=${encodeURIComponent(cacheKey)}`;
+}
 
+function manifestCacheKey(manifest: BannerManifest): string {
+  return manifest.updatedAt ?? String(manifest.version ?? 1);
+}
 
-export async function fetchBannerManifest(): Promise<{
-
+export async function fetchBannerManifest(options?: {
+  forceRefresh?: boolean;
+}): Promise<{
   manifest: BannerManifest;
-
   fromRemote: boolean;
-
 }> {
-
-  if (cachedManifest) {
-
-    return { manifest: cachedManifest, fromRemote: usedRemoteManifest };
-
+  if (!options?.forceRefresh && cachedManifest && usedRemoteManifest) {
+    return { manifest: cachedManifest, fromRemote: true };
   }
-
-
 
   try {
-
-    const response = await withTimeout(fetch(BANNERS_GIST_URL), BANNER_FETCH_TIMEOUT_MS);
-
-
-
-    if (!response.ok) {
-
-      throw new Error(`Banner HTTP ${response.status}`);
-
-    }
-
-
-
-    const json = (await response.json()) as unknown;
-
+    const json = await fetchRemoteJson(BANNERS_GIST_URL, BANNER_FETCH_TIMEOUT_MS, 'Banners');
     const manifest = normalizeManifest(json);
 
-
-
     cachedManifest = manifest;
-
     usedRemoteManifest = true;
 
-
-
     return { manifest, fromRemote: true };
-
   } catch {
+    if (cachedManifest && usedRemoteManifest && !options?.forceRefresh) {
+      return { manifest: cachedManifest, fromRemote: true };
+    }
 
     const manifest = normalizeManifest(defaultManifest);
-
     cachedManifest = manifest;
-
     usedRemoteManifest = false;
-
     return { manifest, fromRemote: false };
-
   }
-
 }
 
 
@@ -269,23 +235,18 @@ export function resolveBannerSlot(
 
 
     if (hasRemoteImage) {
+      const cacheKey = manifestCacheKey(manifest);
 
       return {
-
         slot,
-
         enabled,
-
         mediaType: 'image',
-
-        imageSource: { uri: config.imageUrl!.trim() },
-
+        imageSource: {
+          uri: buildBannerImageUri(config.imageUrl!.trim(), `${slot}-${cacheKey}`),
+        },
         targetUrl,
-
         isRemote: true,
-
       };
-
     }
 
   }

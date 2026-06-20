@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   getDocs,
   query,
   serverTimestamp,
@@ -11,6 +12,7 @@ import {
 
 import { db } from '../../firebaseConfig.js';
 import { getEanProductMapping, saveEanProductMapping } from '@/services/eanProductMapping';
+import { extractCatalogPricesFromFirestore } from '@/services/firebaseProducts';
 import { publishApprovedProduct } from '@/services/publishApprovedProduct';
 
 const PENDING_COLLECTION = 'Pendientes_de_carga';
@@ -39,7 +41,89 @@ export function isUserProductProposal(item: PendingReviewItem): boolean {
 }
 
 export function getPendingReviewDisplayName(item: PendingReviewItem): string {
-  return item.productName?.trim() || item.nameHint?.trim() || 'Producto sin identificar';
+  return (
+    item.productName?.trim() ||
+    item.nameHint?.trim() ||
+    (item.brand ? `${item.brand}` : '') ||
+    'Producto sin identificar'
+  );
+}
+
+export function getPendingReviewProposalFields(item: PendingReviewItem): {
+  productName: string;
+  brand: string;
+  priceLabel: string;
+  hasProposalData: boolean;
+} {
+  const productName = item.productName?.trim() || item.nameHint?.trim() || '';
+  const brand = item.brand?.trim() || '';
+  const priceLabel =
+    item.price != null && item.price > 0 ? `$${item.price.toLocaleString('es-AR')}` : '';
+
+  return {
+    productName: productName || '—',
+    brand: brand || '—',
+    priceLabel: priceLabel || '—',
+    hasProposalData: Boolean(productName || brand || priceLabel),
+  };
+}
+
+function readPendingString(data: Record<string, unknown>, ...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = data[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return undefined;
+}
+
+function readPendingPrice(data: Record<string, unknown>, supermarketId?: string): number | undefined {
+  const direct = data.price ?? data.userPrice ?? data.precio ?? data.Precio ?? data.proposedPrice;
+  if (typeof direct === 'number' && Number.isFinite(direct) && direct > 0) {
+    return Math.round(direct);
+  }
+  if (typeof direct === 'string') {
+    const parsed = parseFloat(direct.replace(',', '.'));
+    if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed);
+  }
+
+  if (supermarketId) {
+    const { prices } = extractCatalogPricesFromFirestore(data);
+    const catalogPrice = prices[supermarketId];
+    if (catalogPrice != null && catalogPrice > 0) return catalogPrice;
+  }
+
+  return undefined;
+}
+
+async function enrichPendingReviewItem(item: PendingReviewItem): Promise<PendingReviewItem> {
+  if (item.productName && item.brand && item.price && item.price > 0) {
+    return item;
+  }
+
+  try {
+    const productSnap = await getDoc(doc(db, 'Productos', item.ean));
+    if (!productSnap.exists()) return item;
+
+    const data = productSnap.data() as Record<string, unknown>;
+    const catalogName = readPendingString(data, 'Nombre', 'nombre', 'name');
+    const catalogBrand = readPendingString(data, 'Marca', 'marca', 'brand');
+    const catalogPrice = readPendingPrice(data, item.supermarketId);
+    const catalogImage = readPendingString(data, 'Imagen', 'imagen', 'imageUrl', 'image');
+
+    return {
+      ...item,
+      productName: item.productName ?? catalogName,
+      brand: item.brand ?? catalogBrand,
+      price: item.price ?? catalogPrice,
+      imageUrl: item.imageUrl ?? catalogImage,
+    };
+  } catch {
+    return item;
+  }
+}
+
+async function enrichPendingReviewItems(items: PendingReviewItem[]): Promise<PendingReviewItem[]> {
+  return Promise.all(items.map((item) => enrichPendingReviewItem(item)));
 }
 
 /** Explica en lenguaje claro qué está proponiendo el usuario. */
@@ -118,35 +202,48 @@ function mapPendingDoc(id: string, data: Record<string, unknown>): PendingReview
         ? data.productoId
         : undefined;
 
-  const priceRaw = data.price ?? data.userPrice;
+  const priceRaw =
+    data.price ??
+    data.userPrice ??
+    data.precio ??
+    data.Precio ??
+    data.proposedPrice;
   const price =
-    typeof priceRaw === 'number' && Number.isFinite(priceRaw) && priceRaw > 0
-      ? Math.round(priceRaw)
-      : undefined;
+    readPendingPrice(
+      {
+        ...data,
+        price: priceRaw,
+      },
+      supermarketId
+    ) ?? undefined;
 
   const imageUrl =
-    typeof data.imageUrl === 'string'
-      ? data.imageUrl
-      : typeof data.userImageUrl === 'string'
-        ? data.userImageUrl
-        : undefined;
+    readPendingString(data, 'imageUrl', 'userImageUrl', 'Imagen', 'imagen', 'image') ??
+    undefined;
 
   return {
     id,
     ean: ean.replace(/\D/g, '') || id,
     supermarketId,
     supermarketName:
-      typeof data.supermarketName === 'string' ? data.supermarketName : undefined,
-    nameHint: typeof data.nameHint === 'string' ? data.nameHint : undefined,
-    rawScan: typeof data.rawScan === 'string' ? data.rawScan : undefined,
+      readPendingString(data, 'supermarketName', 'supermarket_name') ??
+      undefined,
+    nameHint: readPendingString(data, 'nameHint', 'scanNameHint') ?? undefined,
+    rawScan: readPendingString(data, 'rawScan') ?? undefined,
     id_producto,
-    productName: typeof data.productName === 'string' ? data.productName : undefined,
+    productName:
+      readPendingString(
+        data,
+        'productName',
+        'Nombre',
+        'nombre',
+        'name',
+        'proposedName',
+        'titulo'
+      ) ?? undefined,
     brand:
-      typeof data.brand === 'string'
-        ? data.brand
-        : typeof data.userBrand === 'string'
-          ? data.userBrand
-          : undefined,
+      readPendingString(data, 'brand', 'userBrand', 'Marca', 'marca', 'proposedBrand') ??
+      undefined,
     price,
     imageUrl,
     proposalType:
@@ -170,14 +267,16 @@ async function fetchByStatus(status: 'pending' | 'confirmed'): Promise<PendingRe
       )
     );
 
-    return snapshot.docs
-      .map((docSnap) => mapPendingDoc(docSnap.id, docSnap.data() as Record<string, unknown>))
-      .sort((a, b) => {
-        const aUser = isUserProductProposal(a) ? 0 : 1;
-        const bUser = isUserProductProposal(b) ? 0 : 1;
-        if (aUser !== bUser) return aUser - bUser;
-        return a.ean.localeCompare(b.ean);
-      });
+    return enrichPendingReviewItems(
+      snapshot.docs
+        .map((docSnap) => mapPendingDoc(docSnap.id, docSnap.data() as Record<string, unknown>))
+        .sort((a, b) => {
+          const aUser = isUserProductProposal(a) ? 0 : 1;
+          const bUser = isUserProductProposal(b) ? 0 : 1;
+          if (aUser !== bUser) return aUser - bUser;
+          return a.ean.localeCompare(b.ean);
+        })
+    );
   } catch (error) {
     console.warn(`[Firestore] No se pudo listar ${status}:`, error);
     return [];

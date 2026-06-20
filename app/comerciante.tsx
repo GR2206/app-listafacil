@@ -278,7 +278,7 @@ export default function ComercianteScreen() {
 
       <View style={[menuContentStyles.panel, styles.dashboardIntro]}>
         <Text style={styles.dashboardSubtitle}>
-          Métricas de hoy · {selectedMarket?.name ?? 'Comercio'}
+          Actividad de todos los usuarios · {selectedMarket?.name ?? 'Comercio'}
         </Text>
       </View>
 
@@ -338,7 +338,7 @@ export default function ComercianteScreen() {
 
         color="#00E676"
 
-        subtitle="Usuarios que abrieron tu ubicación"
+        subtitle="Usuarios que abrieron la ubicación en Maps"
 
       />
 
@@ -352,7 +352,7 @@ export default function ComercianteScreen() {
 
       <MerchantStatCard
 
-        title="Usuarios únicos que visitaron mis precios"
+        title="Usuarios únicos que vieron precios"
 
         value={stats.uniquePriceVisitors}
 
@@ -368,7 +368,7 @@ export default function ComercianteScreen() {
 
       <MerchantStatCard
 
-        title="Clics hacia mi ubicación (Google Maps)"
+        title="Clics hacia la ubicación (Google Maps)"
 
         value={stats.mapsClicks}
 
@@ -384,7 +384,7 @@ export default function ComercianteScreen() {
 
       <MerchantStatCard
 
-        title="Veces que aparecí como mejor precio"
+        title="Veces elegido como mejor precio"
 
         value={stats.bestPriceWins}
 
@@ -406,7 +406,7 @@ export default function ComercianteScreen() {
 
       <View style={menuContentStyles.panel}>
         <Text style={styles.footerNote}>
-          Los datos se actualizan cuando los usuarios comparan listas y abren mapas en la app.
+          Métricas agregadas de todos los usuarios de la app. Se actualizan cuando comparan listas y abren mapas.
         </Text>
       </View>
 

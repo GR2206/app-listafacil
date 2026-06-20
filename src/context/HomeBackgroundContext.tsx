@@ -10,9 +10,11 @@ import {
 import { AppState, type AppStateStatus } from 'react-native';
 
 import {
+  buildAppLogoImageUri,
   buildHomeBackgroundImageUri,
   fetchHomeAppManifest,
   getStartupHomeAppManifest,
+  prefetchAppLogoImage,
   prefetchHomeBackgroundImage,
   wasRemoteHomeAppManifestUsed,
 } from '@/services/homeBackgroundManager';
@@ -24,6 +26,7 @@ interface HomeBackgroundContextValue {
   usedFallbackManifest: boolean;
   manifest: HomeAppManifest | null;
   homeBackgroundUrl: string | null;
+  appLogoUrl: string | null;
   reload: () => Promise<void>;
 }
 
@@ -51,7 +54,10 @@ export function HomeBackgroundProvider({ children }: { children: ReactNode }) {
       });
       setManifest(nextManifest);
       setUsedFallbackManifest(!fromRemote);
-      await prefetchHomeBackgroundImage(nextManifest);
+      await Promise.all([
+        prefetchHomeBackgroundImage(nextManifest),
+        prefetchAppLogoImage(nextManifest),
+      ]);
     } catch {
       const { manifest: nextManifest } = await fetchHomeAppManifest({ forceRefresh: true });
       setManifest(nextManifest);
@@ -82,6 +88,11 @@ export function HomeBackgroundProvider({ children }: { children: ReactNode }) {
     [manifest]
   );
 
+  const appLogoUrl = useMemo(
+    () => (manifest ? buildAppLogoImageUri(manifest) : null),
+    [manifest]
+  );
+
   const value = useMemo(
     () => ({
       isLoading,
@@ -89,9 +100,10 @@ export function HomeBackgroundProvider({ children }: { children: ReactNode }) {
       usedFallbackManifest,
       manifest,
       homeBackgroundUrl,
+      appLogoUrl,
       reload: () => load(true),
     }),
-    [isLoading, isReady, usedFallbackManifest, manifest, homeBackgroundUrl, load]
+    [isLoading, isReady, usedFallbackManifest, manifest, homeBackgroundUrl, appLogoUrl, load]
   );
 
   return (

@@ -12,15 +12,13 @@ import {
 import { BannerImageView } from '@/components/banners/BannerImageView';
 import { BannerLottieView } from '@/components/banners/BannerLottieView';
 import { BANNER_CONTENT_FIT } from '@/config/bannerMedia';
+import { getBannerStripMetrics } from '@/config/bannerDimensions';
 import { useBannerManager } from '@/hooks/useBannerManager';
 import { prefetchBannerAnimation, prefetchBannerImage, resolveBannerSlot } from '@/services/bannerManager';
 import type { BannerSlotId } from '@/types/banner';
 import { openBannerTarget } from '@/utils/openBannerTarget';
 import { homeColors } from '@/theme/home';
 import { radii } from '@/theme';
-
-const LIST_BANNER_WIDTH = 300;
-const LIST_BANNER_HEIGHT = 50;
 
 interface ManagedBannerSlotProps {
   slot: BannerSlotId;
@@ -36,11 +34,19 @@ function isRemoteImageSource(
 
 type ResolvedBannerImageSource = { uri: string } | number;
 
+function usesFixedStrip(slot: BannerSlotId): boolean {
+  return slot === 'list_banner' || slot === 'top_banner';
+}
+
 export function ManagedBannerSlot({ slot, style, imageStyle }: ManagedBannerSlotProps) {
   const { isLoading, isReady, getBanner, manifest } = useBannerManager();
   const [mediaFailed, setMediaFailed] = useState(false);
   const [mediaReady, setMediaReady] = useState(false);
   const contentFit = BANNER_CONTENT_FIT[slot];
+  const fixedStrip = usesFixedStrip(slot);
+  const isTop = slot === 'top_banner';
+  const isList = slot === 'list_banner';
+  const metrics = useMemo(() => getBannerStripMetrics(slot), [slot]);
 
   const resolved = useMemo(() => {
     if (mediaFailed && manifest) {
@@ -69,8 +75,25 @@ export function ManagedBannerSlot({ slot, style, imageStyle }: ManagedBannerSlot
     await openBannerTarget(slot, resolved.targetUrl);
   }, [resolved.targetUrl, slot]);
 
-  const isList = slot === 'list_banner';
   const showLoading = isLoading || (resolved.isRemote && !mediaReady && !mediaFailed);
+
+  const stripFrameStyle = useMemo(
+    () => ({
+      width: metrics.width,
+      height: metrics.height,
+      borderRadius: isList ? 8 : radii.lg,
+    }),
+    [isList, metrics.height, metrics.width]
+  );
+
+  const stripMediaStyle = useMemo(
+    () => ({
+      width: metrics.width,
+      height: metrics.height,
+      borderRadius: isList ? 8 : radii.lg,
+    }),
+    [isList, metrics.height, metrics.width]
+  );
 
   if (!isReady && isLoading) {
     return <BannerSlotSkeleton slot={slot} style={style} />;
@@ -80,24 +103,13 @@ export function ManagedBannerSlot({ slot, style, imageStyle }: ManagedBannerSlot
     return null;
   }
 
-  return (
-    <TouchableOpacity
-      accessibilityRole="button"
-      accessibilityLabel="Banner publicitario"
-      activeOpacity={0.88}
-      onPress={() => void openTarget()}
-      disabled={!resolved.targetUrl}
-      style={[
-        isList ? styles.listWrap : styles.rectWrap,
-        showLoading && styles.hiddenWhileLoading,
-        style,
-      ]}
-    >
+  const bannerBody = (
+    <>
       {resolved.mediaType === 'lottie' && resolved.animationUrl ? (
         <BannerLottieView
           uri={resolved.animationUrl}
           contentFit={contentFit}
-          style={isList ? styles.listMedia : styles.rectMedia}
+          style={[stripMediaStyle, imageStyle]}
           onReady={() => setMediaReady(true)}
           onError={() => {
             setMediaFailed(true);
@@ -108,7 +120,7 @@ export function ManagedBannerSlot({ slot, style, imageStyle }: ManagedBannerSlot
         <BannerImageView
           source={resolved.imageSource!}
           contentFit={contentFit}
-          style={[isList ? styles.listImage : styles.rectImage, imageStyle]}
+          style={[stripMediaStyle, imageStyle]}
           onLoad={() => setMediaReady(true)}
           onError={() => {
             setMediaFailed(true);
@@ -122,6 +134,52 @@ export function ManagedBannerSlot({ slot, style, imageStyle }: ManagedBannerSlot
           <ActivityIndicator color={homeColors.logoRing} size="small" />
         </View>
       ) : null}
+    </>
+  );
+
+  if (fixedStrip) {
+    return (
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel="Banner publicitario"
+        activeOpacity={0.88}
+        onPress={() => void openTarget()}
+        disabled={!resolved.targetUrl}
+        style={[
+          isTop ? styles.topSlot : styles.listSlot,
+          { height: metrics.height },
+          showLoading && styles.hiddenWhileLoading,
+          style,
+        ]}
+      >
+        <View
+          style={[
+            styles.stripFrame,
+            stripFrameStyle,
+            isTop ? styles.stripFrameTop : styles.stripFrameList,
+          ]}
+        >
+          {bannerBody}
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityLabel="Banner publicitario"
+      activeOpacity={0.88}
+      onPress={() => void openTarget()}
+      disabled={!resolved.targetUrl}
+      style={[
+        styles.rectWrap,
+        { height: metrics.height },
+        showLoading && styles.hiddenWhileLoading,
+        style,
+      ]}
+    >
+      {bannerBody}
     </TouchableOpacity>
   );
 }
@@ -133,51 +191,48 @@ export function BannerSlotSkeleton({
   slot: BannerSlotId;
   style?: StyleProp<ViewStyle>;
 }) {
-  const isList = slot === 'list_banner';
+  const fixedStrip = usesFixedStrip(slot);
+  const isTop = slot === 'top_banner';
+  const metrics = getBannerStripMetrics(slot);
 
   return (
     <View
-      style={[isList ? styles.listSkeleton : styles.rectSkeleton, style]}
+      style={[
+        fixedStrip ? (isTop ? styles.topSlot : styles.listSlot) : styles.rectSkeleton,
+        fixedStrip ? { height: metrics.height } : null,
+        style,
+      ]}
       accessibilityLabel="Cargando banner"
     >
-      <ActivityIndicator color={homeColors.logoRing} size="small" />
+      {fixedStrip ? (
+        <View style={[styles.stripSkeletonInner, { width: metrics.width, height: metrics.height }]}>
+          <ActivityIndicator color={homeColors.logoRing} size="small" />
+        </View>
+      ) : (
+        <ActivityIndicator color={homeColors.logoRing} size="small" />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  rectWrap: {
+  topSlot: {
     flex: 1,
-    height: 52,
-    borderRadius: radii.lg,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(18, 18, 28, 0.35)',
+    minWidth: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  rectImage: {
-    width: '100%',
-    height: 52,
-  },
-  rectMedia: {
-    width: '100%',
-    height: 52,
-  },
-  listWrap: {
-    width: LIST_BANNER_WIDTH,
-    height: LIST_BANNER_HEIGHT,
+  listSlot: {
     alignSelf: 'center',
-    borderRadius: 8,
+  },
+  stripFrame: {
     overflow: 'hidden',
-    backgroundColor: '#E8EDF2',
   },
-  listImage: {
-    width: LIST_BANNER_WIDTH,
-    height: LIST_BANNER_HEIGHT,
-    borderRadius: 8,
+  stripFrameTop: {
+    backgroundColor: 'rgba(8, 14, 24, 0.55)',
   },
-  listMedia: {
-    width: LIST_BANNER_WIDTH,
-    height: LIST_BANNER_HEIGHT,
-    borderRadius: 8,
+  stripFrameList: {
+    backgroundColor: 'transparent',
   },
   hiddenWhileLoading: {
     opacity: 0.92,
@@ -187,26 +242,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(18, 18, 28, 0.25)',
   },
+  rectWrap: {
+    flex: 1,
+    borderRadius: radii.lg,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(18, 18, 28, 0.35)',
+  },
   rectSkeleton: {
     flex: 1,
-    height: 52,
+    height: 50,
     borderRadius: radii.lg,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(18, 18, 28, 0.35)',
   },
-  listSkeleton: {
-    width: LIST_BANNER_WIDTH,
-    height: LIST_BANNER_HEIGHT,
-    alignSelf: 'center',
+  stripSkeletonInner: {
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E8EDF2',
+    backgroundColor: 'rgba(18, 18, 28, 0.35)',
   },
 });
 
+export { getBannerStripMetrics } from '@/config/bannerDimensions';
+
 export const bannerSlotMetrics = {
-  listWidth: LIST_BANNER_WIDTH,
-  listHeight: LIST_BANNER_HEIGHT,
+  listWidth: 300,
+  listHeight: 50,
+  topWidth: 300,
+  topHeight: 100,
 };

@@ -19,6 +19,7 @@ function normalizeManifest(raw: unknown): HomeAppManifest {
     homeBackgroundUrl: isValidHttpUrl(source.homeBackgroundUrl)
       ? source.homeBackgroundUrl.trim()
       : null,
+    appLogoUrl: isValidHttpUrl(source.appLogoUrl) ? source.appLogoUrl.trim() : null,
   };
 }
 
@@ -29,6 +30,17 @@ export function buildHomeBackgroundImageUri(
 
   const base = manifest.homeBackgroundUrl!.trim();
   const cacheKey = encodeURIComponent(manifest.updatedAt ?? String(manifest.version ?? 1));
+  const separator = base.includes('?') ? '&' : '?';
+  return `${base}${separator}v=${cacheKey}`;
+}
+
+export function buildAppLogoImageUri(manifest: HomeAppManifest): string | null {
+  if (!isValidHttpUrl(manifest.appLogoUrl)) return null;
+
+  const base = manifest.appLogoUrl!.trim();
+  const cacheKey = encodeURIComponent(
+    `logo-${manifest.updatedAt ?? String(manifest.version ?? 1)}`
+  );
   const separator = base.includes('?') ? '&' : '?';
   return `${base}${separator}v=${cacheKey}`;
 }
@@ -66,6 +78,21 @@ export function getStartupHomeAppManifest(): HomeAppManifest | null {
 
 export function wasRemoteHomeAppManifestUsed(): boolean {
   return usedRemoteManifest;
+}
+
+export async function prefetchAppLogoImage(manifest: HomeAppManifest): Promise<boolean> {
+  const url = buildAppLogoImageUri(manifest);
+  if (!url || prefetchedUrls.has(url)) {
+    return false;
+  }
+
+  try {
+    const ok = await Image.prefetch(url, { cachePolicy: 'memory-disk' });
+    if (ok) prefetchedUrls.add(url);
+    return ok;
+  } catch {
+    return false;
+  }
 }
 
 export async function prefetchHomeBackgroundImage(manifest: HomeAppManifest): Promise<boolean> {
