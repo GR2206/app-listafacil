@@ -41,3 +41,16 @@ export function getHomeGridRows<T>(items: T[]): T[][] {
   }
   return rows;
 }
+
+export const HOME_GRID_PRIMARY_COUNT = 6;
+
+export function splitHomeGridMarkets<T>(
+  items: T[]
+): { primaryRows: T[][]; extraMarkets: T[] } {
+  const primaryItems = items.slice(0, HOME_GRID_PRIMARY_COUNT);
+  const extraMarkets = items.slice(HOME_GRID_PRIMARY_COUNT);
+  return {
+    primaryRows: getHomeGridRows(primaryItems),
+    extraMarkets,
+  };
+}

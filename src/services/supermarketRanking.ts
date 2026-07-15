@@ -114,6 +114,42 @@ async function fetchRankingFromFirestore(
   }
 }
 
+export async function fetchWeeklyRankingSnapshot(
+  zoneSetting: string | null
+): Promise<WeeklyRankingSnapshot | null> {
+  const { key: zoneKey, label: zoneLabel } = resolveZoneRegion(zoneSetting);
+  const weekKey = getCurrentWeekKey();
+
+  const manifest = await fetchRemoteRankingManifest();
+  const remoteZone = manifest?.zones?.[zoneKey];
+
+  if (remoteZone?.weekKey === weekKey && remoteZone.counts) {
+    return {
+      weekKey,
+      zoneKey,
+      zoneLabel,
+      counts: remoteZone.counts,
+    };
+  }
+
+  try {
+    const snap = await getDoc(doc(db, COLLECTION, zoneKey));
+    if (!snap.exists()) return null;
+
+    const data = snap.data() as WeeklyRankingSnapshot;
+    if (data.weekKey !== weekKey || !data.counts) return null;
+
+    return {
+      weekKey: data.weekKey,
+      zoneKey: data.zoneKey,
+      zoneLabel: data.zoneLabel ?? zoneLabel,
+      counts: data.counts,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchWeeklyTopSupermarket(
   zoneSetting: string | null
 ): Promise<TopSupermarketResult | null> {

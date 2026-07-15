@@ -24,6 +24,8 @@ import { logAppEvent } from '@/services/analytics';
 import { subscribeToAppUpdateChecks, type AppUpdatePrompt } from '@/services/appUpdateCheck';
 import { prepareAppResources } from '@/services/prepareAppResources';
 import { UpdateAvailableModal } from '@/components/update/UpdateAvailableModal';
+import { InstagramClipboardHeadsUp } from '@/components/banners/InstagramClipboardHeadsUp';
+import { initInstagramClipboardNotifications } from '@/utils/instagramClipboardNotice';
 
 
 
@@ -56,6 +58,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     void logAppEvent('app_open');
+    void initInstagramClipboardNotifications();
   }, []);
 
 
@@ -200,6 +203,8 @@ export default function RootLayout() {
           }
         />
       ) : null}
+
+      <InstagramClipboardHeadsUp />
 
     </View>
 

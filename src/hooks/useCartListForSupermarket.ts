@@ -150,8 +150,19 @@ export function useCartListForSupermarket({
 
   useFocusEffect(
     useCallback(() => {
-      void reload();
-    }, [reload])
+      // Solo reinstalar sesión si cambiamos de súper; no re-upsertar mocks en cada foco.
+      if (storeMarketId !== supermarketId) {
+        void reload();
+        return;
+      }
+      void loadPricesForItems(catalogBarcodes);
+    }, [
+      storeMarketId,
+      supermarketId,
+      reload,
+      loadPricesForItems,
+      catalogBarcodes,
+    ])
   );
 
   useEffect(() => {

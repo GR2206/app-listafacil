@@ -1,48 +1,50 @@
 {
-
   "version": 1,
-
   "updatedAt": "2026-06-08T00:00:00.000Z",
-
   "banners": {
-
     "top_banner": {
-
       "enabled": true,
-
       "animationUrl": null,
-
       "imageUrl": null,
-
       "targetUrl": "https://listafacil.app/ofertas"
-
     },
-
     "bottom_banner": {
-
       "enabled": false,
-
       "animationUrl": null,
-
       "imageUrl": null,
-
       "targetUrl": "mailto:publicidad@listafacil.app"
-
     },
-
     "list_banner": {
-
       "enabled": true,
-
       "animationUrl": null,
-
       "imageUrl": null,
-
       "targetUrl": "https://listafacil.app"
-
     }
-
+  },
+  "carousel": {
+    "enabled": true,
+    "slides": [
+      {
+        "id": "catalogo-hoy",
+        "title": "Catálogo del día",
+        "subtitle": "Deslizá y explorá ofertas, tips y novedades.",
+        "imageUrl": null,
+        "targetUrl": "https://listafacil.app/ofertas"
+      },
+      {
+        "id": "ahorra-mas",
+        "title": "Compará antes de pagar",
+        "subtitle": "Elegí el súper y armá tu lista con precios orientativos.",
+        "imageUrl": null,
+        "targetUrl": "https://listafacil.app"
+      },
+      {
+        "id": "publicidad",
+        "title": "¿Querés aparecer acá?",
+        "subtitle": "Alta visibilidad en el home de Lista Fácil.",
+        "imageUrl": null,
+        "targetUrl": "mailto:listafacilgr@gmail.com"
+      }
+    ]
   }
-
 }
-

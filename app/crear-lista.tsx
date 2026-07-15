@@ -12,6 +12,8 @@ import {
   Platform,
   Alert,
   StatusBar,
+  Keyboard,
+  type KeyboardEvent,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -38,6 +40,7 @@ import { withClickSound } from '@/utils/withClickSound';
 import { withTeclaSound } from '@/utils/withTeclaSound';
 
 const SYNC_DEBOUNCE_MS = 900;
+const KEYBOARD_EXTRA_GAP = 28;
 
 function ensureTrailingEmptyRow(items: ShoppingListItem[]): ShoppingListItem[] {
   if (items.length === 0) return [createEmptyShoppingListItem()];
@@ -46,6 +49,29 @@ function ensureTrailingEmptyRow(items: ShoppingListItem[]): ShoppingListItem[] {
     return [...items, createEmptyShoppingListItem()];
   }
   return items;
+}
+
+/**
+ * "arroz, fideos, aceite" / multilínea → un producto por renglón.
+ * null = tipado normal (sin expandir).
+ */
+function parseBulkProductInput(text: string): string[] | null {
+  if (!/[,;\n\r]/.test(text)) return null;
+
+  const parts = text
+    .split(/[,;\n\r]+/)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0);
+
+  if (parts.length === 0) return [''];
+
+  // "arroz," al terminar con separador → cierra el renglón y sigue
+  if (parts.length === 1 && /[,;\n\r]\s*$/.test(text)) {
+    return parts;
+  }
+
+  if (parts.length >= 2) return parts;
+  return null;
 }
 
 export default function CrearListaScreen() {
@@ -62,6 +88,7 @@ export default function CrearListaScreen() {
   const [loading, setLoading] = useState(Boolean(sharedListIdParam));
   const [sharing, setSharing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const itemsRef = useRef(items);
@@ -69,6 +96,24 @@ export default function CrearListaScreen() {
   const listRef = useRef<FlatList<ShoppingListItem>>(null);
 
   itemsRef.current = items;
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const onShow = (event: KeyboardEvent) => {
+      const height = Math.round(event.endCoordinates?.height ?? 0);
+      setKeyboardHeight(Number.isFinite(height) && height > 0 ? height : 0);
+    };
+    const onHide = () => setKeyboardHeight(0);
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const styles = useMemo(
     () =>
@@ -167,7 +212,14 @@ export default function CrearListaScreen() {
           color: lc.textMuted,
         },
         listContent: {
-          paddingBottom: Math.max(insets.bottom, 16) + 24,
+          paddingBottom:
+            Math.max(insets.bottom, 16) +
+            24 +
+            (keyboardHeight > 0
+              ? Platform.OS === 'android'
+                ? keyboardHeight + KEYBOARD_EXTRA_GAP
+                : KEYBOARD_EXTRA_GAP + 56
+              : 0),
         },
         row: {
           flexDirection: 'row',
@@ -221,7 +273,7 @@ export default function CrearListaScreen() {
           backgroundColor: c.listBackground,
         },
       }),
-    [c, insets.top, insets.bottom, theme]
+    [c, insets.top, insets.bottom, theme, keyboardHeight]
   );
 
   const persistDraft = useCallback(async (nextItems: ShoppingListItem[]) => {
@@ -254,9 +306,33 @@ export default function CrearListaScreen() {
     setTimeout(() => {
       inputRefs.current.get(itemId)?.focus();
       if (listIndex != null && listIndex >= 0) {
-        listRef.current?.scrollToIndex({ index: listIndex, animated: true, viewPosition: 0.5 });
+        try {
+          listRef.current?.scrollToIndex({
+            index: listIndex,
+            animated: true,
+            viewPosition: 0.35,
+          });
+        } catch {
+          // scrollToIndex puede fallar si el ítem aún no midió
+        }
       }
-    }, 60);
+    }, 80);
+  }, []);
+
+  /** Solo scrollea — no volver a focus() (evita loop nativo en Android). */
+  const scrollRowIntoView = useCallback((listIndex: number) => {
+    if (listIndex < 0) return;
+    setTimeout(() => {
+      try {
+        listRef.current?.scrollToIndex({
+          index: listIndex,
+          animated: true,
+          viewPosition: 0.35,
+        });
+      } catch {
+        // ignore
+      }
+    }, 50);
   }, []);
 
   const focusNextRow = useCallback(
@@ -289,32 +365,40 @@ export default function CrearListaScreen() {
     let cancelled = false;
 
     void (async () => {
-      if (sharedListIdParam?.trim()) {
-        setLoading(true);
-        const remote = await loadSharedShoppingList(sharedListIdParam.trim());
-        if (cancelled) return;
+      try {
+        if (sharedListIdParam?.trim()) {
+          setLoading(true);
+          const remote = await loadSharedShoppingList(sharedListIdParam.trim());
+          if (cancelled) return;
 
-        if (!remote) {
-          Alert.alert(
-            'Lista no encontrada',
-            'No encontramos esta lista. Puede haber expirado o el enlace está incompleto.'
-          );
-          const draft = await loadDraftShoppingList();
-          setItems(ensureTrailingEmptyRow(draft));
-          setSharedListId(null);
-          router.replace('/crear-lista');
-        } else {
-          setItems(ensureTrailingEmptyRow(remote.items));
-          setSharedListId(remote.id);
+          if (!remote) {
+            Alert.alert(
+              'Lista no encontrada',
+              'No encontramos esta lista. Puede haber expirado o el enlace está incompleto.'
+            );
+            const draft = await loadDraftShoppingList();
+            setItems(ensureTrailingEmptyRow(Array.isArray(draft) ? draft : []));
+            setSharedListId(null);
+            router.replace('/crear-lista');
+          } else {
+            setItems(ensureTrailingEmptyRow(remote.items ?? []));
+            setSharedListId(remote.id);
+          }
+          setLoading(false);
+          return;
         }
-        setLoading(false);
-        return;
-      }
 
-      const draft = await loadDraftShoppingList();
-      if (!cancelled) {
-        setItems(ensureTrailingEmptyRow(draft));
-        setLoading(false);
+        const draft = await loadDraftShoppingList();
+        if (!cancelled) {
+          setItems(ensureTrailingEmptyRow(Array.isArray(draft) ? draft : []));
+          setLoading(false);
+        }
+      } catch (err) {
+        console.warn('[CrearLista] Error al cargar lista', err);
+        if (!cancelled) {
+          setItems([createEmptyShoppingListItem()]);
+          setLoading(false);
+        }
       }
     })();
 
@@ -337,9 +421,44 @@ export default function CrearListaScreen() {
 
   const updateItemText = useCallback(
     (itemId: string, text: string) => {
-      applyItems((current) =>
-        current.map((item) => (item.id === itemId ? { ...item, text } : item))
-      );
+      const bulk = parseBulkProductInput(text);
+
+      if (!bulk) {
+        applyItems((current) =>
+          current.map((item) => (item.id === itemId ? { ...item, text } : item))
+        );
+        return;
+      }
+
+      // Pegado masivo: cerrar teclado y NO re-focus (evita crash nativo en Android).
+      Keyboard.dismiss();
+      inputRefs.current.get(itemId)?.blur();
+
+      applyItems((current) => {
+        const index = current.findIndex((item) => item.id === itemId);
+        if (index < 0) return current;
+
+        const head = current.slice(0, index);
+        const tail = current.slice(index + 1).filter((item) => item.text.trim());
+        const existing = current[index];
+
+        const inserted: ShoppingListItem[] = bulk.map((productText, i) =>
+          i === 0
+            ? { ...existing, text: productText }
+            : { ...createEmptyShoppingListItem(), text: productText }
+        );
+
+        return ensureTrailingEmptyRow([...head, ...inserted, ...tail]);
+      });
+
+      // Esperar a que FlatList monte las filas antes de scrollear.
+      setTimeout(() => {
+        try {
+          listRef.current?.scrollToEnd({ animated: true });
+        } catch {
+          // ignore
+        }
+      }, 350);
     },
     [applyItems]
   );
@@ -436,6 +555,7 @@ export default function CrearListaScreen() {
           }}
           value={item.text}
           onChangeText={(text) => updateItemText(item.id, text)}
+          onFocus={() => scrollRowIntoView(index)}
           onSubmitEditing={() => focusNextRow(item.id)}
           placeholder={index === 0 ? 'Escribí un producto…' : 'Siguiente producto…'}
           placeholderTextColor={lc.textSecondary}
@@ -446,7 +566,15 @@ export default function CrearListaScreen() {
         />
       </View>
     ),
-    [c.qtySymbolSize, styles, theme.primary, toggleItem, updateItemText, focusNextRow]
+    [
+      c.qtySymbolSize,
+      styles,
+      theme.primary,
+      toggleItem,
+      updateItemText,
+      focusNextRow,
+      scrollRowIntoView,
+    ]
   );
 
   if (loading) {
@@ -527,6 +655,7 @@ export default function CrearListaScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top + 8 : 0}
       >
         <View style={styles.tableHeader}>
           <View style={styles.tableHeaderCheck} />
@@ -540,9 +669,17 @@ export default function CrearListaScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          initialNumToRender={16}
+          maxToRenderPerBatch={12}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === 'android'}
           onScrollToIndexFailed={(info) => {
             setTimeout(() => {
-              listRef.current?.scrollToIndex({ index: info.index, animated: true });
+              listRef.current?.scrollToOffset({
+                offset: Math.max(0, info.averageItemLength * info.index),
+                animated: true,
+              });
             }, 100);
           }}
           ListFooterComponent={

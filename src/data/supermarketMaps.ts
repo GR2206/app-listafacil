@@ -15,6 +15,13 @@ const SUPERMARKET_MAP_LABELS: Record<string, string> = {
   jumbo: 'Jumbo Hipermercado',
   dar: 'Supermercado DAR',
   coto: 'Coto Supermercado',
+  arcoiris: 'Supermercado Arcoiris',
+  disco: 'Disco Supermercado',
+  dia: 'Dia Supermercado',
+  vea: 'Vea Supermercado',
+  atomo: 'Atomo Supermercados',
+  changomas: 'Chango Mas',
+  'la-anonima': 'La Anonima',
 };
 
 function buildMapsSearchUrl(query: string): string {

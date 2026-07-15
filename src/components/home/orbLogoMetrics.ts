@@ -18,6 +18,14 @@ const MARKET_LOGO_TUNING: Record<string, number> = {
   coto: 1,
   dar: 1,
   jumbo: 0.96,
+  arcoiris: 0.88,
+  // Logos horizontales: Día/Vea/Disco −20% luego −15%; Átomo −15% (solo la imagen, no el orbe).
+  disco: 0.53,
+  dia: 0.49,
+  vea: 0.53,
+  atomo: 0.75,
+  changomas: 0.82,
+  'la-anonima': 0.86,
 };
 
 export function getOrbLogoSize(marketId: string, orbSize: number): number {

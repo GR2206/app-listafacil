@@ -5,7 +5,6 @@ import {
   type ReactNode,
 } from 'react';
 import { useCartStore } from '@/store/cartStore';
-// @ts-expect-error themes.js sin tipos
 import { getThemeById, DEFAULT_THEME_ID } from '@/theme/themes';
 
 export type SupermarketTheme = {
@@ -22,6 +21,8 @@ export type SupermarketTheme = {
   border: string;
   danger: string;
   cardColor: string;
+  gridBackground: string;
+  gridBorder: string;
   bannerBorder: string;
 };
 

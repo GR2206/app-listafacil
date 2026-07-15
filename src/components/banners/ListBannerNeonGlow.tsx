@@ -1,9 +1,17 @@
-import { useMemo, type ReactNode } from 'react';
-import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import {
+  Platform,
+  StyleSheet,
+  View,
+  type LayoutChangeEvent,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 
 import { getSupermarketNeonColor } from '@/components/home/supermarketOrbTheme';
 import {
-  LIST_BANNER_HEIGHT,
+  LIST_BANNER_ASPECT_RATIO,
+  LIST_BANNER_MIN_HEIGHT,
   LIST_BANNER_WIDTH,
 } from '@/config/bannerDimensions';
 import { hexToRgba } from '@/utils/hexToRgba';
@@ -18,9 +26,20 @@ interface ListBannerNeonGlowProps {
   children: ReactNode;
 }
 
-/** Halo neón del color del súper, detrás del banner 300×50. */
+/** Halo neón del color del súper, detrás del banner de lista. */
 export function ListBannerNeonGlow({ supermarketId, style, children }: ListBannerNeonGlowProps) {
   const neonColor = getSupermarketNeonColor(supermarketId);
+  const [bannerSize, setBannerSize] = useState({
+    width: LIST_BANNER_WIDTH,
+    height: LIST_BANNER_MIN_HEIGHT,
+  });
+
+  const handleBannerLayout = useCallback((event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    if (width > 0 && height > 0) {
+      setBannerSize({ width, height });
+    }
+  }, []);
 
   const glowOuterStyle = useMemo(
     () => ({
@@ -56,8 +75,8 @@ export function ListBannerNeonGlow({ supermarketId, style, children }: ListBanne
           styles.glowOuter,
           glowOuterStyle,
           {
-            width: LIST_BANNER_WIDTH + GLOW_SPREAD * 2,
-            height: LIST_BANNER_HEIGHT + GLOW_SPREAD * 2,
+            width: bannerSize.width + GLOW_SPREAD * 2,
+            height: bannerSize.height + GLOW_SPREAD * 2,
           },
         ]}
       />
@@ -67,23 +86,25 @@ export function ListBannerNeonGlow({ supermarketId, style, children }: ListBanne
           styles.glowInner,
           glowInnerStyle,
           {
-            width: LIST_BANNER_WIDTH + GLOW_SPREAD,
-            height: LIST_BANNER_HEIGHT + GLOW_SPREAD,
+            width: bannerSize.width + GLOW_SPREAD,
+            height: bannerSize.height + GLOW_SPREAD,
           },
         ]}
       />
-      <View style={styles.bannerLayer}>{children}</View>
+      <View onLayout={handleBannerLayout} style={styles.bannerLayer}>
+        {children}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
+    width: '100%',
     alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
-    width: LIST_BANNER_WIDTH + GLOW_SPREAD * 2,
-    minHeight: LIST_BANNER_HEIGHT + GLOW_SPREAD * 2,
+    overflow: 'visible',
   },
   glowOuter: {
     position: 'absolute',
@@ -93,6 +114,12 @@ const styles = StyleSheet.create({
   },
   bannerLayer: {
     zIndex: 1,
+    width: '100%',
+    minHeight: LIST_BANNER_MIN_HEIGHT,
+    aspectRatio: LIST_BANNER_ASPECT_RATIO,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
   },
 });
 

@@ -15,12 +15,16 @@ export function useCartScreenStyles() {
           flex: 1,
         },
         savingsBanner: {
+          alignSelf: 'stretch',
           marginHorizontal: c.margin,
           marginTop: 4,
           marginBottom: c.gap,
         },
         scanDock: {
+          flexDirection: 'row',
           alignItems: 'center',
+          justifyContent: 'center',
+          gap: 8,
           paddingHorizontal: c.margin,
           paddingTop: 4,
           paddingBottom: 6,

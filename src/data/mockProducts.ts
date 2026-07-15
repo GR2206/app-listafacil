@@ -42,6 +42,7 @@ const PRICE_OFFSET: Record<string, number> = {
   jumbo: 50,
   dar: 10,
   coto: -10,
+  arcoiris: 15,
 };
 
 function buildCatalog(): Product[] {

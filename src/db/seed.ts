@@ -14,17 +14,20 @@ export async function seedMockCatalog(): Promise<void> {
   await setAppSetting(MOCK_CATALOG_SEED_KEY, '1');
 }
 
-/** Prepara SQLite al elegir supermercado: catálogo + sesión activa */
+/** Prepara SQLite al elegir supermercado: catálogo (1 vez) + sesión activa */
 export async function prepareSupermarketSession(
   supermarketId: string,
   supermarketName: string
 ): Promise<void> {
-  const marketProducts = MOCK_PRODUCTS.filter(
-    (p) => p.supermarketId === supermarketId
-  );
+  const marketSeedKey = `mock_market_seeded_${supermarketId}_v1`;
+  const alreadySeeded = await getAppSetting(marketSeedKey);
 
-  for (const product of marketProducts) {
-    await upsertProduct(product);
+  if (alreadySeeded !== '1') {
+    const marketProducts = MOCK_PRODUCTS.filter((p) => p.supermarketId === supermarketId);
+    for (const product of marketProducts) {
+      await upsertProduct(product);
+    }
+    await setAppSetting(marketSeedKey, '1');
   }
 
   await saveCartSession({

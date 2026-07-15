@@ -1,3 +1,5 @@
+import type { SQLiteDatabase } from 'expo-sqlite';
+
 import { MOCK_SUPERMARKETS } from '@/data/mockSupermarkets';
 import {
   mergeSupermarketPrice,
@@ -215,10 +217,7 @@ export function sanitizeContaminatedPriceMaps(
 }
 
 export async function sanitizeContaminatedPricesInDatabase(
-  database: {
-    getAllAsync: <T>(sql: string, params?: unknown[]) => Promise<T[]>;
-    runAsync: (sql: string, params?: unknown[]) => Promise<unknown>;
-  }
+  database: SQLiteDatabase
 ): Promise<SanitizeContaminatedPricesResult> {
   const rows = await database.getAllAsync<ProductRowForSanitize>(
     `SELECT id, barcode, price, supermarket_id, prices_json, prices_synced_at_json

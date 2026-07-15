@@ -61,7 +61,7 @@ export default function ZonaScreen() {
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          marginBottom: undefined,
+          marginBottom: m.spacingSm + 4,
         },
         optionActive: {
           borderColor: homeColors.logoRing,
@@ -109,8 +109,9 @@ export default function ZonaScreen() {
     <MenuScreenLayout title="Cambiar de Zona">
       <View style={[menuContentStyles.panel, styles.hintPanel]}>
         <Text style={styles.hint}>
-          Elegí tu zona manualmente o detectala con GPS. Solo usamos la ubicación cuando tocás
-          el botón de abajo; no rastreamos en segundo plano.
+          Elegí tu ciudad o detectala con GPS. En Rosario ves supers locales; en otras ciudades
+          aparecen las cadenas nacionales (Coto, Carrefour, Jumbo). Solo usamos la ubicación
+          cuando tocás el botón; no rastreamos en segundo plano.
         </Text>
       </View>
 

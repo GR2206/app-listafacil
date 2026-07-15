@@ -83,7 +83,7 @@ export async function logAppEvent(eventName: string, params?: object): Promise<v
 export function logSupermarketClick(
   supermarketId: string,
   supermercadoNombre: string,
-  origen: 'grid' | 'super_taquillero' = 'grid'
+  origen: 'grid' | 'super_taquillero' | 'oferta_dia' = 'grid'
 ): Promise<void> {
   const suffix = supermarketEventSuffix(supermarketId);
 

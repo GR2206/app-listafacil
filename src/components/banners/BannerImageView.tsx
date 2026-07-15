@@ -7,7 +7,7 @@ interface BannerImageViewProps {
   source: BannerImageSource;
   contentFit: ImageContentFit;
   style?: StyleProp<ImageStyle>;
-  onLoad?: () => void;
+  onLoad?: (source?: { width: number; height: number }) => void;
   onError?: () => void;
 }
 
@@ -29,7 +29,10 @@ export function BannerImageView({
       cachePolicy="memory-disk"
       decodeFormat="argb"
       transition={180}
-      onLoad={onLoad}
+      onLoad={(event) => {
+        const { width, height } = event.source;
+        onLoad?.(width > 0 && height > 0 ? { width, height } : undefined);
+      }}
       onError={onError}
     />
   );

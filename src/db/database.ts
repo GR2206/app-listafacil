@@ -221,7 +221,7 @@ function getSanitizedPriceMetaFromRow(
   row: Pick<
     ProductRow,
     'price' | 'supermarket_id' | 'prices_json' | 'prices_synced_at_json'
-  >
+  > & { updated_at?: string | null }
 ): ProductPriceMeta {
   const rawPrices = mergePricesFromRow({}, row);
   const rawSyncedAt = mergeSyncedAtFromRow({}, row);
@@ -239,7 +239,9 @@ function getSanitizedPriceMetaFromRow(
 
 function mergeSyncedAtFromRow(
   syncedAtMap: Record<string, string>,
-  row: Pick<ProductRow, 'supermarket_id' | 'updated_at' | 'prices_synced_at_json'>
+  row: Pick<ProductRow, 'supermarket_id' | 'prices_synced_at_json'> & {
+    updated_at?: string | null;
+  }
 ): Record<string, string> {
   let merged = { ...syncedAtMap, ...parseSyncedAtJson(row.prices_synced_at_json) };
 

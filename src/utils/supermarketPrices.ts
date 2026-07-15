@@ -5,6 +5,13 @@ export const SUPERMARKET_PRICE_ALIASES: Record<string, string[]> = {
   jumbo: ['jumbo', 'Jumbo', 'JUMBO'],
   dar: ['dar', 'DAR', 'Dar'],
   coto: ['coto', 'Coto', 'COTO'],
+  arcoiris: ['arcoiris', 'Arcoiris', 'ARCOIRIS'],
+  disco: ['disco', 'Disco', 'DISCO'],
+  dia: ['dia', 'Dia', 'DIA', 'día', 'Día'],
+  vea: ['vea', 'Vea', 'VEA'],
+  atomo: ['atomo', 'Atomo', 'ATOMO', 'átomo', 'Átomo'],
+  changomas: ['changomas', 'chango-mas', 'chango_mas', 'ChangoMas', 'CHANGOMAS'],
+  'la-anonima': ['la-anonima', 'la_anonima', 'La_Anonima', 'LA_ANONIMA'],
 };
 
 export function supermarketPriceKeys(supermarketId: string): string[] {

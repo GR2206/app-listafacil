@@ -3,6 +3,9 @@ import { Image } from 'expo-image';
 
 import { fetchBannerManifest, prefetchManifestImages } from '@/services/bannerManager';
 import { fetchHomeAppManifest, prefetchAppLogoImage, prefetchHomeBackgroundImage } from '@/services/homeBackgroundManager';
+import { fetchOfertaDiaManifest, prefetchOfertaDiaImages } from '@/services/ofertaDiaManager';
+import { fetchPromosBancariasManifest } from '@/services/promosBancariasManager';
+import { ensureZoneOnLaunch } from '@/services/ensureZoneOnLaunch';
 import { preloadAppFonts } from '@/services/preloadAppFonts';
 import { seedMockCatalog } from '@/db/seed';
 import { areSoundsPreloaded, preloadSounds } from '@/services/playSound';
@@ -31,6 +34,15 @@ async function preloadHomeBackgroundAssets(): Promise<void> {
   await Promise.all([prefetchHomeBackgroundImage(manifest), prefetchAppLogoImage(manifest)]);
 }
 
+async function preloadOfertaDiaAssets(): Promise<void> {
+  const { manifest } = await fetchOfertaDiaManifest();
+  await prefetchOfertaDiaImages(manifest);
+}
+
+async function preloadPromosBancarias(): Promise<void> {
+  await fetchPromosBancariasManifest();
+}
+
 async function prepareDatabaseLayer(
   hydrate: () => Promise<void>,
   hydrateMerchantAuth: () => Promise<void>
@@ -39,6 +51,8 @@ async function prepareDatabaseLayer(
   await seedMockCatalog();
   await hydrate();
   await hydrateMerchantAuth();
+  // GPS solo si aún no hay zona (primer uso).
+  await ensureZoneOnLaunch();
 }
 
 export async function prepareAppResources(
@@ -54,6 +68,8 @@ export async function prepareAppResources(
   await Promise.all([
     preloadBannerAssets(),
     preloadHomeBackgroundAssets(),
+    preloadOfertaDiaAssets(),
+    preloadPromosBancarias(),
     prepareDatabaseLayer(hydrate, hydrateMerchantAuth),
   ]);
 }

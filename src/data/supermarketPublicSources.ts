@@ -43,6 +43,48 @@ export const SUPERMARKET_PUBLIC_SOURCES: SupermarketPublicSource[] = [
     websiteUrl: 'https://www.cotodigital.com.ar/',
     websiteLabel: 'cotodigital.com.ar',
   },
+  {
+    id: 'arcoiris',
+    name: 'Arcoiris',
+    websiteUrl: 'https://arcoirisencasa.com.ar/',
+    websiteLabel: 'arcoirisencasa.com.ar',
+  },
+  {
+    id: 'disco',
+    name: 'Disco',
+    websiteUrl: 'https://www.disco.com.ar/',
+    websiteLabel: 'disco.com.ar',
+  },
+  {
+    id: 'dia',
+    name: 'Día',
+    websiteUrl: 'https://diaonline.supermercadosdia.com.ar/',
+    websiteLabel: 'supermercadosdia.com.ar',
+  },
+  {
+    id: 'vea',
+    name: 'Vea',
+    websiteUrl: 'https://www.vea.com.ar/',
+    websiteLabel: 'vea.com.ar',
+  },
+  {
+    id: 'atomo',
+    name: 'Átomo',
+    websiteUrl: 'https://www.atomoconviene.com/',
+    websiteLabel: 'atomoconviene.com',
+  },
+  {
+    id: 'changomas',
+    name: 'Chango Más',
+    websiteUrl: 'https://www.changomas.com.ar/',
+    websiteLabel: 'changomas.com.ar',
+  },
+  {
+    id: 'la-anonima',
+    name: 'La Anónima',
+    websiteUrl: 'https://www.laanonima.com.ar/',
+    websiteLabel: 'laanonima.com.ar',
+  },
 ];
 
 export const DATA_SOURCES_DISCLAIMER =

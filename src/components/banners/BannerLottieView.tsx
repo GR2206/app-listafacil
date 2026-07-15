@@ -4,6 +4,13 @@ import LottieView from 'lottie-react-native';
 
 import type { BannerContentFit } from '@/config/bannerMedia';
 
+/** Lottie solo acepta cover | contain | center; `fill` del banner → cover. */
+const LOTTIE_RESIZE_MODE: Record<BannerContentFit, 'cover' | 'contain' | 'center'> = {
+  cover: 'cover',
+  contain: 'contain',
+  fill: 'cover',
+};
+
 interface BannerLottieViewProps {
   uri: string;
   contentFit: BannerContentFit;
@@ -36,7 +43,7 @@ export function BannerLottieView({
         autoPlay
         loop
         style={StyleSheet.absoluteFillObject}
-        resizeMode={contentFit}
+        resizeMode={LOTTIE_RESIZE_MODE[contentFit]}
         onAnimationLoaded={() => onReady?.()}
         onAnimationFailure={() => {
           setFailed(true);

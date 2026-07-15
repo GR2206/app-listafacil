@@ -5,14 +5,15 @@ import {
   StyleSheet,
   Animated,
   Easing,
-  ActivityIndicator,
   Pressable,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import { SupermarketOrbLogo } from '@/components/home/SupermarketOrbLogo';
+import { ShimmerBlock } from '@/components/ui/ShimmerBlock';
 import { SUPERMARKET_NEON_COLORS } from '@/components/home/supermarketOrbTheme';
 import { useSuperTaquillero } from '@/hooks/useSuperTaquillero';
+import type { LiveSavingsTicker } from '@/hooks/useHomeGamification';
 import { useCartStore } from '@/store/cartStore';
 import { logSupermarketClick } from '@/services/analytics';
 import { withNavFeedback } from '@/utils/withNavFeedback';
@@ -22,11 +23,23 @@ import { radii, spacing, typography } from '@/theme';
 const ORB_SIZE = 52;
 const GLOW_CYCLE_MS = 3200;
 
-export function SuperTaquilleroWidget() {
+interface SuperTaquilleroWidgetProps {
+  gamificationLoading?: boolean;
+  liveTicker?: LiveSavingsTicker | null;
+}
+
+export function SuperTaquilleroWidget({
+  gamificationLoading = false,
+  liveTicker = null,
+}: SuperTaquilleroWidgetProps) {
   const router = useRouter();
   const setSupermarket = useCartStore((s) => s.setSupermarket);
-  const { top, loading } = useSuperTaquillero();
+  const { top, loading: taquilleroLoading } = useSuperTaquillero();
   const glowPulse = useRef(new Animated.Value(0.35)).current;
+  const firePulse = useRef(new Animated.Value(1)).current;
+  const tickerOpacity = useRef(new Animated.Value(1)).current;
+
+  const loading = taquilleroLoading || gamificationLoading;
 
   const openWinnerList = useCallback(() => {
     if (!top) return;
@@ -70,11 +83,56 @@ export function SuperTaquilleroWidget() {
     return () => loop.stop();
   }, [glowPulse]);
 
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(firePulse, {
+          toValue: 1.18,
+          duration: 700,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(firePulse, {
+          toValue: 1,
+          duration: 700,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    loop.start();
+    return () => loop.stop();
+  }, [firePulse]);
+
+  useEffect(() => {
+    if (!liveTicker) return;
+
+    Animated.sequence([
+      Animated.timing(tickerOpacity, {
+        toValue: 0.45,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.timing(tickerOpacity, {
+        toValue: 1,
+        duration: 320,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [liveTicker?.count, tickerOpacity]);
+
   if (loading) {
     return (
       <View style={styles.shell}>
         <View style={styles.loadingPanel}>
-          <ActivityIndicator color={homeColors.neonBlue} size="small" />
+          <View style={styles.loadingRow}>
+            <ShimmerBlock style={styles.loadingOrb} borderRadius={31} />
+            <View style={styles.loadingCopy}>
+              <ShimmerBlock style={styles.loadingLineShort} borderRadius={8} />
+              <ShimmerBlock style={styles.loadingLineLong} borderRadius={8} />
+            </View>
+          </View>
         </View>
       </View>
     );
@@ -108,11 +166,13 @@ export function SuperTaquilleroWidget() {
           ]}
         >
           <SupermarketOrbLogo marketId={top.supermarketId} orbSize={ORB_SIZE} />
-          <View style={styles.fireBadge}>
+          <Animated.View
+            style={[styles.fireBadge, { transform: [{ scale: firePulse }] }]}
+          >
             <Text style={styles.fireIcon} accessibilityLabel="Más elegido">
               🔥
             </Text>
-          </View>
+          </Animated.View>
         </Pressable>
 
         <View style={styles.copyBlock}>
@@ -127,6 +187,17 @@ export function SuperTaquilleroWidget() {
               {top.supermarketName}
             </Text>
           </Text>
+
+          {liveTicker ? (
+            <Animated.Text style={[styles.liveTicker, { opacity: tickerOpacity }]}>
+              Hoy,{' '}
+              <Text style={styles.liveCount}>{liveTicker.count}</Text> personas en{' '}
+              <Text style={styles.liveZone}>{liveTicker.zoneLabel}</Text> están ahorrando en{' '}
+              <Text style={[styles.liveMarket, { color: accentColor }]}>
+                {liveTicker.supermarketName}
+              </Text>
+            </Animated.Text>
+          ) : null}
         </View>
       </View>
     </View>
@@ -147,9 +218,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: homeColors.border,
     paddingVertical: spacing.sm,
-    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    minHeight: 88,
     justifyContent: 'center',
-    minHeight: 72,
+  },
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  loadingOrb: {
+    width: 62,
+    height: 62,
+  },
+  loadingCopy: {
+    flex: 1,
+    gap: 8,
+  },
+  loadingLineShort: {
+    width: '55%',
+    height: 12,
+  },
+  loadingLineLong: {
+    width: '92%',
+    height: 14,
   },
   glowRing: {
     position: 'absolute',
@@ -231,6 +323,25 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   winnerName: {
+    fontWeight: '900',
+  },
+  liveTicker: {
+    marginTop: 6,
+    fontSize: 11,
+    lineHeight: 16,
+    color: 'rgba(200, 220, 240, 0.9)',
+    fontWeight: '600',
+  },
+  liveCount: {
+    fontWeight: '900',
+    color: '#7EE8FF',
+    fontSize: 12,
+  },
+  liveZone: {
+    fontWeight: '800',
+    color: homeColors.text,
+  },
+  liveMarket: {
     fontWeight: '900',
   },
 });

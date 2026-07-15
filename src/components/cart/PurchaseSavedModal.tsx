@@ -36,7 +36,7 @@ export function PurchaseSavedModal({
           </View>
 
           <Text style={[styles.title, { color: theme.text }]}>¡Compra guardada!</Text>
-          <Text style={[styles.message, { color: theme.textSecondary }]}>
+          <Text style={[styles.message, { color: theme.textMuted }]}>
             Tu compra en {supermarketName} quedó registrada.
           </Text>
 

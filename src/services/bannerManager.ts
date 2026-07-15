@@ -12,16 +12,27 @@ import type {
   BannerManifest,
   BannerSlotConfig,
   BannerSlotId,
+  HomeCarouselConfig,
+  HomeCarouselSlideConfig,
   ResolvedBanner,
+  ResolvedHomeCarouselSlide,
 } from '@/types/banner';
 
 import { fetchRemoteJson } from '@/utils/fetchRemoteJson';
 import { isLottieUrl } from '@/utils/isLottieUrl';
 import { isValidBannerTargetUrl, isValidHttpUrl } from '@/utils/validateBannerUrl';
 
-
-
 const SLOT_IDS: BannerSlotId[] = ['top_banner', 'bottom_banner', 'list_banner'];
+
+const DEFAULT_CAROUSEL_SLIDES: ResolvedHomeCarouselSlide[] = (
+  (defaultManifest as BannerManifest).carousel?.slides ?? []
+).map((slide, index) => ({
+  id: slide.id?.trim() || `slide-${index + 1}`,
+  title: (slide.title ?? '').trim() || 'Catálogo del día',
+  subtitle: (slide.subtitle ?? '').trim() || 'Deslizá para explorar.',
+  imageUrl: isValidHttpUrl(slide.imageUrl) ? slide.imageUrl!.trim() : null,
+  targetUrl: isValidBannerTargetUrl(slide.targetUrl) ? slide.targetUrl!.trim() : null,
+}));
 
 
 
@@ -59,60 +70,116 @@ function resolveAnimationUrl(entry: BannerManifest['banners'][BannerSlotId]): st
 
 
 
+function normalizeCarouselSlide(
+  raw: Partial<HomeCarouselSlideConfig> | null | undefined,
+  index: number
+): HomeCarouselSlideConfig | null {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const imageUrl = isValidHttpUrl(raw.imageUrl) ? raw.imageUrl.trim() : null;
+  const targetUrl = isValidBannerTargetUrl(raw.targetUrl) ? raw.targetUrl.trim() : null;
+  const title = typeof raw.title === 'string' ? raw.title.trim() : '';
+  const subtitle = typeof raw.subtitle === 'string' ? raw.subtitle.trim() : '';
+
+  if (!imageUrl && !title) return null;
+
+  return {
+    id: typeof raw.id === 'string' && raw.id.trim() ? raw.id.trim() : `slide-${index + 1}`,
+    title: title || null,
+    subtitle: subtitle || null,
+    imageUrl,
+    targetUrl,
+  };
+}
+
+function normalizeCarousel(raw: unknown): HomeCarouselConfig {
+  const source = (raw && typeof raw === 'object' ? raw : {}) as Partial<HomeCarouselConfig>;
+  const slidesRaw = Array.isArray(source.slides) ? source.slides : [];
+  const slides = slidesRaw
+    .map((slide, index) => normalizeCarouselSlide(slide as Partial<HomeCarouselSlideConfig>, index))
+    .filter((slide): slide is HomeCarouselSlideConfig => slide !== null);
+
+  return {
+    enabled: source.enabled !== false,
+    slides,
+  };
+}
+
 function normalizeManifest(raw: unknown): BannerManifest {
-
   const source = (raw && typeof raw === 'object' ? raw : {}) as Partial<BannerManifest>;
-
   const banners = (source.banners ?? {}) as Partial<
     Record<BannerSlotId, Partial<BannerSlotConfig>>
   >;
 
-
-
   const normalized = {} as BannerManifest['banners'];
 
-
-
   for (const slot of SLOT_IDS) {
-
     const entry = banners[slot] ?? {};
-
     const imageUrl = isValidHttpUrl(entry.imageUrl) ? entry.imageUrl.trim() : null;
-
     const animationUrl = isLottieUrl(entry.animationUrl)
       ? entry.animationUrl.trim()
       : isLottieUrl(entry.imageUrl)
         ? entry.imageUrl!.trim()
         : null;
 
-
-
     normalized[slot] = {
-
       enabled: entry.enabled !== false,
-
       imageUrl: imageUrl && !isLottieUrl(imageUrl) ? imageUrl : null,
-
       animationUrl,
-
       targetUrl: isValidBannerTargetUrl(entry.targetUrl) ? entry.targetUrl.trim() : null,
-
     };
-
   }
 
-
-
   return {
-
     version: typeof source.version === 'number' ? source.version : 1,
-
     updatedAt: typeof source.updatedAt === 'string' ? source.updatedAt : undefined,
-
     banners: normalized,
-
+    carousel: normalizeCarousel(source.carousel),
   };
+}
 
+/**
+ * Slides del carousel home.
+ * Prioridad: `carousel.slides` del Gist → creativos remotos de banners → defaults locales.
+ */
+export function resolveHomeCarouselSlides(manifest: BannerManifest | null): ResolvedHomeCarouselSlide[] {
+  if (manifest?.carousel?.enabled === false) {
+    return [];
+  }
+
+  const configured = manifest?.carousel?.slides ?? [];
+  if (configured.length > 0) {
+    return configured.map((slide, index) => ({
+      id: slide.id?.trim() || `slide-${index + 1}`,
+      title: (slide.title ?? '').trim() || 'Catálogo del día',
+      subtitle: (slide.subtitle ?? '').trim() || 'Deslizá para explorar.',
+      imageUrl: isValidHttpUrl(slide.imageUrl) ? slide.imageUrl!.trim() : null,
+      targetUrl: isValidBannerTargetUrl(slide.targetUrl) ? slide.targetUrl!.trim() : null,
+    }));
+  }
+
+  if (manifest) {
+    const fromBanners: ResolvedHomeCarouselSlide[] = [];
+    for (const slot of ['top_banner', 'list_banner'] as const) {
+      const entry = manifest.banners[slot];
+      if (!entry?.enabled || !isValidHttpUrl(entry.imageUrl)) continue;
+      fromBanners.push({
+        id: `from-${slot}`,
+        title: slot === 'top_banner' ? 'Destacado de hoy' : 'Novedad en tu lista',
+        subtitle: 'Tocá para ver más · deslizá para seguir explorando',
+        imageUrl: entry.imageUrl!.trim(),
+        targetUrl: isValidBannerTargetUrl(entry.targetUrl) ? entry.targetUrl!.trim() : null,
+      });
+    }
+    if (fromBanners.length > 0) {
+      return [
+        ...fromBanners,
+        ...DEFAULT_CAROUSEL_SLIDES.filter((slide) => !slide.imageUrl).slice(0, 1),
+      ];
+    }
+  }
+
+  return DEFAULT_CAROUSEL_SLIDES;
 }
 
 
@@ -342,41 +409,30 @@ export async function prefetchBannerAnimation(url: string): Promise<boolean> {
 
 
 export async function prefetchManifestImages(manifest: BannerManifest): Promise<void> {
-
   const tasks: Promise<boolean>[] = [];
 
   for (const slot of SLOT_IDS) {
-
     const config = manifest.banners[slot];
-
     if (!config) continue;
 
-
-
     const animationUrl = resolveAnimationUrl(config);
-
     if (animationUrl) {
-
       tasks.push(prefetchBannerAnimation(animationUrl));
-
       continue;
-
     }
-
-
 
     if (isValidHttpUrl(config.imageUrl)) {
-
       tasks.push(prefetchBannerImage(config.imageUrl));
-
     }
-
   }
 
-
+  for (const slide of resolveHomeCarouselSlides(manifest)) {
+    if (slide.imageUrl) {
+      tasks.push(prefetchBannerImage(slide.imageUrl));
+    }
+  }
 
   await Promise.all(tasks);
-
 }
 
 

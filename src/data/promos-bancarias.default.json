@@ -1,0 +1,48 @@
+{
+  "updatedAt": "2026-07-14T09:00:00.000Z",
+  "fecha": "2026-07-14",
+  "diaSemana": 2,
+  "diaLabel": "martes",
+  "header": "Promos que podés usar HOY, martes 14/07",
+  "timezone": "America/Argentina/Buenos_Aires",
+  "promos_bancarias": [
+    {
+      "id": "hipotecario-modo-martes-cencosud",
+      "banco": "Hipotecario",
+      "titulo": "25% en Jumbo, Disco y Vea con MODO (App BH)",
+      "descuentoPct": 25,
+      "ahorroPesos": 15000,
+      "dias": [2],
+      "vigenciaDesde": "2026-07-01",
+      "vigenciaHasta": "2026-07-31",
+      "tope": "$15.000/mes",
+      "medios": ["MODO", "App Hipotecario"],
+      "supers": ["jumbo", "disco", "vea"],
+      "ambito": "national",
+      "provincias": [],
+      "url": "https://www.hipotecario.com.ar/",
+      "prioridad": 10,
+      "venceEnHoras": 14,
+      "enProximas24h": false
+    },
+    {
+      "id": "galicia-qr-martes-jueves-cencosud",
+      "banco": "Galicia",
+      "titulo": "20% QR Galicia/MODO en Jumbo, Disco y Vea",
+      "descuentoPct": 20,
+      "ahorroPesos": 25000,
+      "dias": [2, 4],
+      "vigenciaDesde": "2026-07-01",
+      "vigenciaHasta": "2026-07-31",
+      "tope": "$25.000/mes",
+      "medios": ["QR Galicia", "MODO"],
+      "supers": ["jumbo", "disco", "vea"],
+      "ambito": "national",
+      "provincias": [],
+      "url": "https://www.galicia.ar/",
+      "prioridad": 8,
+      "venceEnHoras": 14,
+      "enProximas24h": false
+    }
+  ]
+}

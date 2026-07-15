@@ -84,10 +84,10 @@ export async function checkForAppUpdate(): Promise<AppUpdatePrompt | null> {
       typeof remote.androidMinVersionCode === 'number' &&
       currentVersionCode < remote.androidMinVersionCode;
 
-    const updateUrl =
-      isValidHttpUrl(remote.updateUrl) || remote.updateUrl?.startsWith('market://')
-        ? remote.updateUrl!
-        : DEFAULT_APP_UPDATE_URL;
+    const candidateUrl = remote.updateUrl?.trim() ?? '';
+    const acceptsUpdateUrl =
+      candidateUrl.startsWith('market://') || isValidHttpUrl(candidateUrl);
+    const updateUrl = acceptsUpdateUrl ? candidateUrl : DEFAULT_APP_UPDATE_URL;
 
     return {
       title: remote.title ?? 'Actualización disponible',

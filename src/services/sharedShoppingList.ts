@@ -11,8 +11,13 @@ function createListId(): string {
   return `lista_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+let itemIdSeq = 0;
+
 function createItemId(): string {
-  return `item_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+  itemIdSeq += 1;
+  return `item_${Date.now().toString(36)}_${itemIdSeq.toString(36)}_${Math.random()
+    .toString(36)
+    .slice(2, 8)}`;
 }
 
 export function createEmptyShoppingListItem(): ShoppingListItem {

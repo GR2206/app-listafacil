@@ -1,0 +1,30 @@
+{
+  "oferta_dia": [
+    {
+      "id": 1,
+      "titulo": "Yerba Mate 1kg",
+      "precio": "3200",
+      "imagen": "",
+      "cta": "Sumar a mi lista",
+      "gancho": "Ahorro de hoy: 20%",
+      "urgencia": "Solo hoy",
+      "barcode": "",
+      "supermarketId": "jumbo",
+      "supermarketName": "Jumbo",
+      "ahorroPct": 20
+    },
+    {
+      "id": 2,
+      "titulo": "Leche Entera 1L",
+      "precio": "1450",
+      "imagen": "",
+      "cta": "Sumar a mi lista",
+      "gancho": "Oportunidad Irrepetible",
+      "urgencia": "Hasta agotar stock",
+      "barcode": "",
+      "supermarketId": "carrefour",
+      "supermarketName": "Carrefour",
+      "ahorroPct": null
+    }
+  ]
+}

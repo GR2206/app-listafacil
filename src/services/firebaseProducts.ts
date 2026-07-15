@@ -12,7 +12,9 @@ export { normalizeBarcode, barcodeLookupVariants } from '@/utils/eanLookup';
 
 import { db } from '../../firebaseConfig.js';
 
+import type { AppProvince } from '@/config/provinces';
 import type { Product } from '@/types';
+import { getActivePriceProvince } from '@/services/priceProvince';
 import { logPriceAudit } from '@/utils/priceAuditLog';
 
 
@@ -22,19 +24,19 @@ const COLLECTION = 'Productos';
 
 
 const SUPERMARKET_PRICE_ALIASES: Record<string, string[]> = {
-
   'la-reina': ['la-reina', 'La_Reina', 'la_reina', 'LA_REINA'],
-
   'la-gallega': ['la-gallega', 'La_Gallega', 'la_gallega'],
-
   carrefour: ['carrefour', 'Carrefour'],
-
   jumbo: ['jumbo', 'Jumbo'],
-
   dar: ['dar', 'DAR', 'Dar'],
-
   coto: ['coto', 'Coto', 'COTO'],
-
+  arcoiris: ['arcoiris', 'Arcoiris', 'ARCOIRIS'],
+  disco: ['disco', 'Disco', 'DISCO'],
+  dia: ['dia', 'Dia', 'DIA'],
+  vea: ['vea', 'Vea', 'VEA'],
+  atomo: ['atomo', 'Atomo', 'ATOMO'],
+  changomas: ['changomas', 'chango_mas', 'ChangoMas'],
+  'la-anonima': ['la-anonima', 'la_anonima', 'La_Anonima'],
 };
 
 
@@ -62,87 +64,97 @@ function parsePriceValue(value: unknown): number | null {
 
 
 /**
-
- * El robot guardó precios como campos planos "Precios.La_Reina"
-
- * además del objeto anidado Precios (según versión del script).
-
+ * Precios planos (compat) + bucket provincial si existe.
+ * Prioridad: PreciosProvincias[provincia][super] -> Precios[super].
  */
-
-function extractPreciosMap(data: Record<string, unknown>): Record<string, unknown> {
-
+function extractFlatPreciosMap(data: Record<string, unknown>): Record<string, unknown> {
   const map: Record<string, unknown> = {};
 
-
-
   const nested = data.Precios ?? data.precios ?? data.prices;
-
   if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
-
     Object.assign(map, nested as Record<string, unknown>);
-
   }
-
-
 
   for (const [key, value] of Object.entries(data)) {
-
     if (key.startsWith('Precios.')) {
-
       map[key.slice('Precios.'.length)] = value;
-
     }
-
     if (key.startsWith('precios.')) {
-
       map[key.slice('precios.'.length)] = value;
-
     }
-
   }
 
-
-
   return map;
-
 }
 
+function extractProvincePreciosMap(
+  data: Record<string, unknown>,
+  province: AppProvince | null | undefined
+): Record<string, unknown> | null {
+  if (!province) return null;
 
+  const root =
+    data.PreciosProvincias ?? data.preciosProvincias ?? data.precios_provincias;
+  if (!root || typeof root !== 'object' || Array.isArray(root)) return null;
+
+  const bucket = (root as Record<string, unknown>)[province];
+  if (!bucket || typeof bucket !== 'object' || Array.isArray(bucket)) return null;
+
+  return bucket as Record<string, unknown>;
+}
+
+function extractPreciosMap(
+  data: Record<string, unknown>,
+  province?: AppProvince | null
+): Record<string, unknown> {
+  const flat = extractFlatPreciosMap(data);
+  const byProvince = extractProvincePreciosMap(data, province);
+  if (!byProvince) return flat;
+  return { ...flat, ...byProvince };
+}
 
 function readPriceForSupermarket(
-
   data: Record<string, unknown>,
-
-  supermarketId: string
-
+  supermarketId: string,
+  province?: AppProvince | null
 ): number | null {
-
-  const map = extractPreciosMap(data);
-
+  const provinceMap = extractProvincePreciosMap(data, province);
+  const flatMap = extractFlatPreciosMap(data);
   const keys = SUPERMARKET_PRICE_ALIASES[supermarketId] ?? [
-
     supermarketId,
-
     supermarketId.replace(/-/g, '_'),
-
     supermarketId.replace(/-/g, ''),
-
   ];
 
+  const tryMap = (
+    map: Record<string, unknown>,
+    source: 'PreciosProvincias' | 'Precios'
+  ): number | null => {
+    for (const key of keys) {
+      const price = parsePriceValue(map[key]);
+      if (price != null) {
+        logPriceAudit('Firestore', {
+          supermarketId,
+          matchedKey: key,
+          price,
+          source,
+          province: province ?? undefined,
+        });
+        return price;
+      }
+    }
+    return null;
+  };
 
+  if (provinceMap) {
+    const fromProvince = tryMap(provinceMap, 'PreciosProvincias');
+    if (fromProvince != null) return fromProvince;
+  }
+
+  const fromFlat = tryMap(flatMap, 'Precios');
+  if (fromFlat != null) return fromFlat;
 
   for (const key of keys) {
-    const price = parsePriceValue(map[key]);
-    if (price != null) {
-      logPriceAudit('Firestore', {
-        supermarketId,
-        matchedKey: key,
-        price,
-        source: 'Precios',
-      });
-      return price;
-    }
-
     const flat = parsePriceValue(data[`Precios.${key}`]);
     if (flat != null) {
       logPriceAudit('Firestore', {
@@ -158,7 +170,8 @@ function readPriceForSupermarket(
   logPriceAudit('Firestore', {
     supermarketId,
     price: null,
-    availablePrecioKeys: Object.keys(map),
+    province: province ?? undefined,
+    availablePrecioKeys: Object.keys(extractPreciosMap(data, province)),
     note: 'Sin precio para este super — no se usa Precio/precio/price global',
   });
 
@@ -217,8 +230,11 @@ function readSyncTimeForSupermarket(
   return null;
 }
 
-/** Precios de todos los supers en el documento Firestore (objeto Precios). */
-export function extractCatalogPricesFromFirestore(data: Record<string, unknown>): {
+/** Precios de todos los supers (provincia activa si hay bucket; si no, Precios plano). */
+export function extractCatalogPricesFromFirestore(
+  data: Record<string, unknown>,
+  province?: AppProvince | null
+): {
   prices: Record<string, number>;
   syncedAt: Record<string, string>;
 } {
@@ -226,7 +242,7 @@ export function extractCatalogPricesFromFirestore(data: Record<string, unknown>)
   const syncedAt: Record<string, string> = {};
 
   for (const supermarketId of Object.keys(SUPERMARKET_PRICE_ALIASES)) {
-    const price = readPriceForSupermarket(data, supermarketId);
+    const price = readPriceForSupermarket(data, supermarketId, province);
     if (price == null || price <= 0) continue;
 
     prices[supermarketId] = price;
@@ -241,91 +257,61 @@ export function extractCatalogPricesFromFirestore(data: Record<string, unknown>)
 }
 
 function mapFirestoreDoc(
-
   barcode: string,
-
   data: Record<string, unknown>,
-
-  supermarketId: string
-
+  supermarketId: string,
+  province?: AppProvince | null
 ): Product | null {
-
   const name =
-
     (data.Nombre as string) ??
-
     (data.nombre as string) ??
-
     (data.name as string) ??
-
     '';
-
-
 
   if (!name.trim()) return null;
 
-
-
   const imageUrl =
-
     (data.Imagen as string) ??
-
     (data.imagen as string) ??
-
     (data.imageUrl as string) ??
-
     (data.image as string) ??
-
     undefined;
 
-
-
-  const price = readPriceForSupermarket(data, supermarketId);
-  const catalogPrices = extractCatalogPricesFromFirestore(data);
+  const price = readPriceForSupermarket(data, supermarketId, province);
+  const catalogPrices = extractCatalogPricesFromFirestore(data, province);
 
   return {
-
     id: barcode,
-
     barcode,
-
     name: name.trim(),
-
     brand: (data.Marca as string) ?? (data.marca as string) ?? (data.brand as string),
-
     imageUrl,
-
     price: price ?? 0,
-
     supermarketId,
-
     updatedAt: new Date().toISOString(),
-
     priceSyncedAt: readSyncTimeForSupermarket(data, supermarketId) ?? undefined,
-
     catalogPrices,
-
   };
-
 }
-
-
 
 async function readProductDoc(
   candidate: string,
-  supermarketId: string
+  supermarketId: string,
+  province?: AppProvince | null
 ): Promise<Product | null> {
   const ref = doc(db, COLLECTION, candidate);
   const snapshot = await getDoc(ref);
   if (!snapshot.exists()) return null;
 
   const data = snapshot.data() as Record<string, unknown>;
-  const product = mapFirestoreDoc(candidate, data, supermarketId);
+  const activeProvince = province ?? (await getActivePriceProvince());
+  const product = mapFirestoreDoc(candidate, data, supermarketId, activeProvince);
   if (!product) return null;
 
   logPriceAudit('FirestoreLookup', {
     barcode: candidate,
     supermarketId,
+    province: activeProvince,
     price: product.price > 0 ? product.price : null,
     productName: product.name,
   });
@@ -355,7 +341,8 @@ async function queryProductsByNameField(
   field: string,
   nameHint: string,
   supermarketId: string,
-  mode: 'exact' | 'prefix'
+  mode: 'exact' | 'prefix',
+  province?: AppProvince | null
 ): Promise<Product[]> {
   const term = nameHint.trim();
   if (term.length < 2) return [];
@@ -367,10 +354,11 @@ async function queryProductsByNameField(
 
   const snapshot = await getDocs(query(collection(db, COLLECTION), ...constraints));
   const products: Product[] = [];
+  const activeProvince = province ?? (await getActivePriceProvince());
 
   for (const docSnap of snapshot.docs) {
     const data = docSnap.data() as Record<string, unknown>;
-    const product = mapFirestoreDoc(docSnap.id, data, supermarketId);
+    const product = mapFirestoreDoc(docSnap.id, data, supermarketId, activeProvince);
     if (product) products.push(product);
   }
 
@@ -406,11 +394,18 @@ export async function searchProductCandidatesByName(
   try {
     const fields = ['Nombre', 'nombre', 'name'];
     const matches: Product[] = [];
+    const province = await getActivePriceProvince();
 
     for (const field of fields) {
       for (const mode of ['exact', 'prefix'] as const) {
         try {
-          const found = await queryProductsByNameField(field, term, supermarketId, mode);
+          const found = await queryProductsByNameField(
+            field,
+            term,
+            supermarketId,
+            mode,
+            province
+          );
           matches.push(...found);
         } catch {
           // Índice faltante en un campo: continuar con el siguiente.

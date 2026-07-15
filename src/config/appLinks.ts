@@ -1,9 +1,12 @@
 /** Marca y enlaces públicos de la app (compartir, banners, etc.) */
 export const APP_BRAND_NAME = 'ListaFacil';
 
-/** Landing con enlaces a Play Store / App Store cuando estén publicados */
+/** Google Play Store — enlace público para compartir y QR del menú. */
+export const PLAY_STORE_URL =
+  'https://play.google.com/store/apps/details?id=com.listafacil.app';
+
 export const APP_DOWNLOAD_URL =
-  process.env.EXPO_PUBLIC_APP_DOWNLOAD_URL?.trim() || 'https://listafacil.app';
+  process.env.EXPO_PUBLIC_APP_DOWNLOAD_URL?.trim() || PLAY_STORE_URL;
 
 export const SHARE_INVITATION_TITLE = `Vení a ahorrar con ${APP_BRAND_NAME}`;
 

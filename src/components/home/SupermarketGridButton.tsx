@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef } from 'react';
 
-import { View, Pressable, StyleSheet, Platform, Animated, Easing } from 'react-native';
+import { View, Pressable, StyleSheet, Platform, Animated, Easing, Text } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 import type { Supermarket } from '@/types';
 
@@ -14,6 +15,7 @@ import {
   buildOrbBreathRange,
   getOrbGlowPhaseOffset,
   getSupermarketNeonColor,
+  getSupermarketNeonColorForIndex,
   ORB_BREATH_SINE_INPUT,
   type OrbVisualPresetId,
 } from '@/components/home/supermarketOrbTheme';
@@ -21,16 +23,17 @@ import { getOrbVisualPreset } from '@/components/home/supermarketOrbVisualPreset
 
 interface SupermarketGridButtonProps {
   market: Supermarket;
-  /** Tamaño visual del orbe (logo + glow). */
   orbSize: number;
-  /** Huella del slot en grilla — conserva espacios entre botones. */
   slotOrbSize?: number;
   onPress: () => void;
-  /** Solo para vista previa: compara actual vs propuesto sin tocar la home. */
   visualPreset?: OrbVisualPresetId;
+  entranceIndex?: number;
+  isHot?: boolean;
+  isFavorite?: boolean;
 }
 
 const BEZEL_WIDTH = 6;
+const ENTRANCE_STAGGER_MS = 85;
 
 function SupermarketGridButtonComponent({
   market,
@@ -38,6 +41,9 @@ function SupermarketGridButtonComponent({
   slotOrbSize,
   onPress,
   visualPreset = 'current',
+  entranceIndex = 0,
+  isHot = false,
+  isFavorite = false,
 }: SupermarketGridButtonProps) {
   const preset = getOrbVisualPreset(visualPreset);
   const orbAnimation = preset.animation;
@@ -54,6 +60,71 @@ function SupermarketGridButtonComponent({
 
   const press = useRef(new Animated.Value(0)).current;
   const breathe = useRef(new Animated.Value(0)).current;
+  const entrance = useRef(new Animated.Value(0)).current;
+  const favoritePulse = useRef(new Animated.Value(1)).current;
+  const hotPulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const delay = entranceIndex * ENTRANCE_STAGGER_MS;
+    const timer = setTimeout(() => {
+      Animated.spring(entrance, {
+        toValue: 1,
+        friction: 6,
+        tension: 90,
+        useNativeDriver: true,
+      }).start();
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [entrance, entranceIndex]);
+
+  useEffect(() => {
+    if (!isFavorite) return;
+
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(favoritePulse, {
+          toValue: 1.18,
+          duration: 700,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(favoritePulse, {
+          toValue: 1,
+          duration: 700,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    loop.start();
+    return () => loop.stop();
+  }, [favoritePulse, isFavorite]);
+
+  useEffect(() => {
+    if (!isHot) return;
+
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(hotPulse, {
+          toValue: 1.18,
+          duration: 700,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(hotPulse, {
+          toValue: 1,
+          duration: 700,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ])
+    );
+
+    loop.start();
+    return () => loop.stop();
+  }, [hotPulse, isHot]);
 
   useEffect(() => {
     const duration = orbAnimation.breatheDurationMs;
@@ -161,14 +232,34 @@ function SupermarketGridButtonComponent({
     outputRange: [9, 9 + orbAnimation.pressBezelInset * 0.45],
   });
 
+  const entranceScale = entrance.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.35, 1],
+  });
+
+  const entranceOpacity = entrance.interpolate({
+    inputRange: [0, 0.4, 1],
+    outputRange: [0, 0.85, 1],
+  });
+
   return (
+    <Animated.View
+      style={[
+        styles.wrapper,
+        { width: slotSize, height: slotSize },
+        {
+          opacity: entranceOpacity,
+          transform: [{ scale: entranceScale }],
+        },
+      ]}
+    >
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`Entrar a ${market.name}`}
       onPress={onPress}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={[styles.wrapper, { width: slotSize, height: slotSize }]}
+      style={styles.pressableFill}
     >
       <View style={[styles.orbAnchor, { width: orbSize, height: orbSize }]}>
         <Animated.View
@@ -181,9 +272,10 @@ function SupermarketGridButtonComponent({
             },
           ]}
         >
-          {glowLayers.map((layer) => {
+          {glowLayers.map((layer, layerIndex) => {
             const glowSize = orbSize + layer.spread * 2;
             const glowOffset = (orbSize - glowSize) / 2;
+            const layerColor = getSupermarketNeonColorForIndex(market.id, layerIndex);
 
             return (
               <View
@@ -196,7 +288,7 @@ function SupermarketGridButtonComponent({
                     width: glowSize,
                     height: glowSize,
                     borderRadius: glowSize / 2,
-                    backgroundColor: hexToRgba(neonColor, layer.opacity),
+                    backgroundColor: hexToRgba(layerColor, layer.opacity),
                   },
                 ]}
               />
@@ -210,6 +302,7 @@ function SupermarketGridButtonComponent({
               if (sparkle.bottom != null) position.bottom = sparkle.bottom;
               if (sparkle.left != null) position.left = sparkle.left;
               if (sparkle.right != null) position.right = sparkle.right;
+              const sparkleColor = getSupermarketNeonColorForIndex(market.id, index);
 
               return (
                 <View
@@ -220,7 +313,7 @@ function SupermarketGridButtonComponent({
                       width: sparkle.size,
                       height: sparkle.size,
                       borderRadius: sparkle.size / 2,
-                      backgroundColor: hexToRgba(neonColor, sparkle.opacity),
+                      backgroundColor: hexToRgba(sparkleColor, sparkle.opacity),
                       ...position,
                     },
                   ]}
@@ -385,7 +478,27 @@ function SupermarketGridButtonComponent({
           </View>
         </Animated.View>
       </View>
+
+      {isHot ? (
+        <Animated.View
+          style={[styles.hotBadge, { transform: [{ scale: hotPulse }] }]}
+          accessibilityLabel="Ofertas del día"
+        >
+          <Text style={styles.hotEmoji}>🔥</Text>
+          <Text style={styles.hotLabel}>Precio bajo</Text>
+        </Animated.View>
+      ) : null}
+
+      {isFavorite ? (
+        <Animated.View
+          style={[styles.favoriteBadge, { transform: [{ scale: favoritePulse }] }]}
+          accessibilityLabel="Tu súper favorito"
+        >
+          <Ionicons name="heart" size={12} color="#FF4D6D" />
+        </Animated.View>
+      ) : null}
     </Pressable>
+    </Animated.View>
   );
 }
 
@@ -396,6 +509,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    overflow: 'visible',
+  },
+  pressableFill: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
     overflow: 'visible',
   },
   orbAnchor: {
@@ -543,5 +663,44 @@ const styles = StyleSheet.create({
     height: StyleSheet.hairlineWidth,
     backgroundColor: 'rgba(255, 255, 255, 0.22)',
     zIndex: 8,
+  },
+  hotBadge: {
+    position: 'absolute',
+    top: 2,
+    right: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0, 0, 0, 0.78)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 140, 0, 0.65)',
+    zIndex: 20,
+  },
+  hotEmoji: {
+    fontSize: 10,
+    lineHeight: 12,
+  },
+  hotLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#FFD166',
+    letterSpacing: 0.2,
+  },
+  favoriteBadge: {
+    position: 'absolute',
+    top: 4,
+    left: 4,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 77, 109, 0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
   },
 });

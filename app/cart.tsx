@@ -30,6 +30,8 @@ import { PurchaseSavedModal } from '@/components/cart/PurchaseSavedModal';
 import { ManualAddFab } from '@/components/cart/ManualAddFab';
 import { CartAccessibilityBar } from '@/components/cart/CartAccessibilityBar';
 import { UndoRemoveToast } from '@/components/cart/UndoRemoveToast';
+import { ShoppingChecklistButton } from '@/components/cart/ShoppingChecklistButton';
+import { ShoppingChecklistModal } from '@/components/cart/ShoppingChecklistModal';
 
 import { TotalFooter } from '@/components/cart/TotalFooter';
 import { SmartSavingsPanel } from '@/components/cart/SmartSavingsPanel';
@@ -39,6 +41,7 @@ import { CartScanButton } from '@/components/cart/CartScanButton';
 
 import { ScanNoticeBanner } from '@/components/cart/ScanNoticeBanner';
 import { ScanNotFoundBanner } from '@/components/cart/ScanNotFoundBanner';
+import { BankPromoTipBanner } from '@/components/cart/BankPromoTipBanner';
 
 import { ListCyberBanner } from '@/components/banners/ListCyberBanner';
 
@@ -50,7 +53,9 @@ import { useCartListForSupermarket } from '@/hooks/useCartListForSupermarket';
 import { useCartScreenStyles } from '@/hooks/useCartScreenStyles';
 import { useCartListScale } from '@/context/CartListScaleContext';
 import { usePriceChangeHints } from '@/hooks/usePriceChangeHints';
-import { useSmartSavings } from '@/hooks/useSmartSavings';
+import { useSmartSavings, marketsForComparison } from '@/hooks/useSmartSavings';
+import { useSelectedZone } from '@/hooks/useSelectedZone';
+import { useCartBankPromoTip } from '@/hooks/useCartBankPromoTip';
 import { computeScannedProductQuotes } from '@/services/smartSavingsEngine';
 import { useSupermarketSyncStatus } from '@/hooks/useSupermarketSyncStatus';
 import { openSupermarketInMaps } from '@/data/supermarketMaps';
@@ -129,12 +134,19 @@ function CartScreenContent() {
   });
 
   const syncStatusBySuper = useSupermarketSyncStatus();
+  const selectedZone = useSelectedZone();
+  const bankPromoTip = useCartBankPromoTip({
+    supermarketId,
+    supermarketName,
+    listTotal: total,
+  });
   const savings = useSmartSavings({
     items,
     pricesByBarcode,
     syncedAtByBarcode,
     userPricesByBarcode,
     syncStatusBySuper,
+    currentSupermarketId: supermarketId,
   });
 
   const priceChangeHints = usePriceChangeHints(displayItems);
@@ -189,6 +201,7 @@ function CartScreenContent() {
 
   const [scannerOpen, setScannerOpen] = useState(true);
   const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [checklistOpen, setChecklistOpen] = useState(false);
 
   const [editingItem, setEditingItem] = useState<CartLine | null>(null);
 
@@ -283,7 +296,7 @@ function CartScreenContent() {
       item.quantity,
       pricesByBarcode,
       syncedAtByBarcode,
-      undefined,
+      marketsForComparison(selectedZone, supermarketId),
       userPricesByBarcode,
       item.unitPrice
     );
@@ -299,6 +312,8 @@ function CartScreenContent() {
     pricesByBarcode,
     syncedAtByBarcode,
     userPricesByBarcode,
+    selectedZone,
+    supermarketId,
   ]);
 
   const hasPricedComparison =
@@ -651,6 +666,10 @@ function CartScreenContent() {
 
       <ListCyberBanner supermarketId={supermarketId} style={styles.savingsBanner} />
 
+      {bankPromoTip ? (
+        <BankPromoTipBanner tip={bankPromoTip} supermarketId={supermarketId} />
+      ) : null}
+
       {notFoundScan ? (
         <ScanNotFoundBanner
           barcode={notFoundScan.barcode}
@@ -857,6 +876,7 @@ function CartScreenContent() {
 
       <View style={styles.footerFixed}>
         <View style={styles.scanDock}>
+          <ShoppingChecklistButton onPress={() => setChecklistOpen(true)} />
           <CartScanButton onPress={() => setScannerOpen(true)} />
         </View>
 
@@ -906,6 +926,11 @@ function CartScreenContent() {
         visible={manualModalOpen}
         onClose={() => setManualModalOpen(false)}
         onConfirm={handleManualConfirm}
+      />
+
+      <ShoppingChecklistModal
+        visible={checklistOpen}
+        onClose={() => setChecklistOpen(false)}
       />
 
       <PurchaseSavedModal

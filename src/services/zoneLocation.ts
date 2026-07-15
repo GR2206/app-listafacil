@@ -58,7 +58,7 @@ export async function detectZoneFromDevice(): Promise<ZoneDetectResult> {
         ok: false,
         reason: 'outside',
         message:
-          'Tu ubicación está fuera de las zonas disponibles (Rosario, Gran Rosario y Santa Fe capital). Elegí una manualmente.',
+          'Tu ubicación está fuera de las ciudades disponibles por ahora. Elegí una zona de la lista o acercate a una ciudad grande (Mendoza, Córdoba, CABA, Rosario, etc.).',
       };
     }
 

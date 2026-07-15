@@ -1,7 +1,8 @@
+import { getCatalogEntry } from '@/data/supermarketCatalog';
 import { getOrbVisualPreset } from '@/components/home/supermarketOrbVisualPresets';
 import type { OrbVisualPresetId } from '@/components/home/supermarketOrbVisualPresets';
 
-/** Contorno neón por cadena — referencia image final */
+/** Contorno neón por cadena — catálogo + overrides puntuales. */
 export const SUPERMARKET_NEON_COLORS: Record<string, string> = {
   'la-reina': '#FF8C1A',
   'la-gallega': '#D946EF',
@@ -9,6 +10,25 @@ export const SUPERMARKET_NEON_COLORS: Record<string, string> = {
   jumbo: '#00E676',
   dar: '#FFBF00',
   coto: '#FF1A2E',
+  arcoiris: '#00A651',
+  disco: '#E30613',
+  dia: '#E30613',
+  vea: '#EE1D23',
+  atomo: '#E30613',
+  changomas: '#7CB342',
+  'la-anonima': '#004A99',
+};
+
+export function getSupermarketNeonColor(supermarketId: string): string {
+  return (
+    getCatalogEntry(supermarketId)?.neonColor ??
+    SUPERMARKET_NEON_COLORS[supermarketId] ??
+    '#00E5FF'
+  );
+}
+
+export const SUPERMARKET_NEON_COLOR_PALETTES: Record<string, string[]> = {
+  arcoiris: ['#E30613', '#FFD100', '#00A651'],
 };
 
 /** Disco de color detrás del logo (gallega, carrefour, jumbo) */
@@ -16,6 +36,10 @@ export const SUPERMARKET_LOGO_DISCS: Record<string, { color: string; border?: st
   'la-gallega': { color: '#7B1FA2' },
   carrefour: { color: '#1565C0' },
   jumbo: { color: '#00A651', border: 'rgba(255,255,255,0.85)' },
+  disco: { color: '#111111', border: 'rgba(255,255,255,0.9)' },
+  dia: { color: '#111111', border: 'rgba(255,255,255,0.9)' },
+  vea: { color: '#111111', border: 'rgba(255,255,255,0.9)' },
+  'la-anonima': { color: '#FFFFFF', border: 'rgba(0,74,153,0.45)' },
 };
 
 const CURRENT = getOrbVisualPreset('current');
@@ -71,8 +95,15 @@ export function getOrbGlowPhaseOffset(marketId: string): number {
   return hash / 10_000;
 }
 
-export function getSupermarketNeonColor(marketId: string): string {
-  return SUPERMARKET_NEON_COLORS[marketId] ?? '#FFFFFF';
+export function getSupermarketNeonColors(marketId: string): string[] {
+  const palette = SUPERMARKET_NEON_COLOR_PALETTES[marketId];
+  if (palette?.length) return palette;
+  return [getSupermarketNeonColor(marketId)];
+}
+
+export function getSupermarketNeonColorForIndex(marketId: string, index: number): string {
+  const colors = getSupermarketNeonColors(marketId);
+  return colors[index % colors.length] ?? getSupermarketNeonColor(marketId);
 }
 
 export type { OrbVisualPresetId };

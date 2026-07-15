@@ -1,8 +1,10 @@
 import type { BannerSlotId } from '@/types/banner';
 
-/** Creativo lista (carrito) — 6:1 */
+/** Creativo lista (carrito) — marco 6:1 */
 export const LIST_BANNER_WIDTH = 300;
 export const LIST_BANNER_HEIGHT = 50;
+export const LIST_BANNER_ASPECT_RATIO = 6;
+export const LIST_BANNER_MIN_HEIGHT = 60;
 
 /** Creativo home (junto al menú) — 3:1 */
 export const TOP_BANNER_WIDTH = 300;
