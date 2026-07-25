@@ -11,12 +11,18 @@ export const SUPERMARKET_NEON_COLORS: Record<string, string> = {
   dar: '#FFBF00',
   coto: '#FF1A2E',
   arcoiris: '#00A651',
+  unico: '#E30613',
   disco: '#E30613',
   dia: '#E30613',
   vea: '#EE1D23',
   atomo: '#E30613',
   changomas: '#7CB342',
   'la-anonima': '#004A99',
+  california: '#F5A623',
+  yaguar: '#00A651',
+  maxiconsumo: '#E30613',
+  vital: '#0091DA',
+  toledo: '#0B1F3F',
 };
 
 export function getSupermarketNeonColor(supermarketId: string): string {
@@ -29,6 +35,7 @@ export function getSupermarketNeonColor(supermarketId: string): string {
 
 export const SUPERMARKET_NEON_COLOR_PALETTES: Record<string, string[]> = {
   arcoiris: ['#E30613', '#FFD100', '#00A651'],
+  unico: ['#E30613', '#FFD100', '#006B3F'],
 };
 
 /** Disco de color detrás del logo (gallega, carrefour, jumbo) */
@@ -39,7 +46,15 @@ export const SUPERMARKET_LOGO_DISCS: Record<string, { color: string; border?: st
   disco: { color: '#111111', border: 'rgba(255,255,255,0.9)' },
   dia: { color: '#111111', border: 'rgba(255,255,255,0.9)' },
   vea: { color: '#111111', border: 'rgba(255,255,255,0.9)' },
+  // Logo con fondo negro: disco negro para que el recorte circular no muestre bordes.
+  unico: { color: '#111111', border: 'rgba(255,255,255,0.9)' },
   'la-anonima': { color: '#FFFFFF', border: 'rgba(0,74,153,0.45)' },
+  // Posadas: contraste para wordmarks claros/oscuros dentro del orbe.
+  california: { color: '#111111', border: 'rgba(255,255,255,0.85)' },
+  yaguar: { color: '#111111', border: 'rgba(255,255,255,0.9)' },
+  maxiconsumo: { color: '#F5F5F5', border: 'rgba(10,37,90,0.35)' },
+  vital: { color: '#111111', border: 'rgba(255,255,255,0.85)' },
+  toledo: { color: '#F4F7FB', border: 'rgba(11,31,63,0.45)' },
 };
 
 const CURRENT = getOrbVisualPreset('current');

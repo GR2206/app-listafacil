@@ -9,6 +9,8 @@ import {
 } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 
+import { SELECTED_ZONE_SETTING_KEY } from '@/config/zones';
+import { getAppSetting } from '@/db/database';
 import {
   fetchBannerManifest,
   getStartupBannerManifest,
@@ -32,6 +34,7 @@ const BannerManagerContext = createContext<BannerManagerContextValue | null>(nul
 const startupManifest = getStartupBannerManifest();
 
 export function BannerManagerProvider({ children }: { children: ReactNode }) {
+  const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(startupManifest === null);
   const [isReady, setIsReady] = useState(startupManifest !== null);
   const [usedFallbackManifest, setUsedFallbackManifest] = useState(
@@ -62,20 +65,31 @@ export function BannerManagerProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const refreshZone = useCallback(() => {
+    void getAppSetting(SELECTED_ZONE_SETTING_KEY).then(setSelectedZone);
+  }, []);
+
   useEffect(() => {
-    void load(true);
+    void load(false);
   }, [load]);
+
+  useEffect(() => {
+    refreshZone();
+    const interval = setInterval(refreshZone, 4000);
+    return () => clearInterval(interval);
+  }, [refreshZone]);
 
   useEffect(() => {
     const onAppStateChange = (state: AppStateStatus) => {
       if (state === 'active') {
-        void load(true);
+        refreshZone();
+        void load(false);
       }
     };
 
     const subscription = AppState.addEventListener('change', onAppStateChange);
     return () => subscription.remove();
-  }, [load]);
+  }, [load, refreshZone]);
 
   const getBanner = useCallback(
     (slot: BannerSlotId): ResolvedBanner => {
@@ -90,13 +104,14 @@ export function BannerManagerProvider({ children }: { children: ReactNode }) {
             },
           },
           slot,
-          true
+          true,
+          selectedZone
         );
       }
 
-      return resolveBannerSlot(manifest, slot);
+      return resolveBannerSlot(manifest, slot, false, selectedZone);
     },
-    [manifest]
+    [manifest, selectedZone]
   );
 
   const value = useMemo(

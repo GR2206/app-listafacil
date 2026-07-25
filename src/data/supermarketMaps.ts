@@ -16,12 +16,18 @@ const SUPERMARKET_MAP_LABELS: Record<string, string> = {
   dar: 'Supermercado DAR',
   coto: 'Coto Supermercado',
   arcoiris: 'Supermercado Arcoiris',
+  unico: 'Unico Supermercados',
   disco: 'Disco Supermercado',
   dia: 'Dia Supermercado',
   vea: 'Vea Supermercado',
   atomo: 'Atomo Supermercados',
   changomas: 'Chango Mas',
   'la-anonima': 'La Anonima',
+  california: 'Supermercado California',
+  yaguar: 'Yaguar Supermercado',
+  maxiconsumo: 'Maxiconsumo',
+  vital: 'Vital Supermercado',
+  toledo: 'Toledo Supermercado',
 };
 
 function buildMapsSearchUrl(query: string): string {

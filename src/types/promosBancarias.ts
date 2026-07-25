@@ -23,6 +23,8 @@ export interface PromoBancariaItem {
   /** Horas restantes de vigencia (hasta medianoche AR o +24h) */
   venceEnHoras: number;
   enProximas24h?: boolean;
+  /** True si el día de la semana de hoy está en `dias`. */
+  aplicaHoy?: boolean;
 }
 
 export interface PromosBancariasManifest {

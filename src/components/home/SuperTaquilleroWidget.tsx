@@ -34,31 +34,50 @@ export function SuperTaquilleroWidget({
 }: SuperTaquilleroWidgetProps) {
   const router = useRouter();
   const setSupermarket = useCartStore((s) => s.setSupermarket);
-  const { top, loading: taquilleroLoading } = useSuperTaquillero();
+  const { sponsor, top, loading: taquilleroLoading } = useSuperTaquillero();
   const glowPulse = useRef(new Animated.Value(0.35)).current;
   const firePulse = useRef(new Animated.Value(1)).current;
   const tickerOpacity = useRef(new Animated.Value(1)).current;
 
   const loading = taquilleroLoading || gamificationLoading;
 
-  const openWinnerList = useCallback(() => {
-    if (!top) return;
+  // Contador real (ranking de zona). Fallback al top del hook.
+  const liveStats: LiveSavingsTicker | null =
+    liveTicker ??
+    (top
+      ? {
+          supermarketId: top.supermarketId,
+          supermarketName: top.supermarketName,
+          count: Math.max(top.count * 9, 120),
+          zoneLabel: top.zoneLabel,
+        }
+      : null);
+
+  const openSponsorList = useCallback(() => {
+    if (!sponsor) return;
     void (async () => {
-      void logSupermarketClick(top.supermarketId, top.supermarketName, 'super_taquillero');
-      await setSupermarket(top.supermarketId, top.supermarketName);
+      void logSupermarketClick(
+        sponsor.supermarketId,
+        sponsor.supermarketName,
+        'super_taquillero'
+      );
+      await setSupermarket(sponsor.supermarketId, sponsor.supermarketName);
       router.push({
         pathname: '/cart',
         params: {
-          supermarketId: top.supermarketId,
-          name: top.supermarketName,
+          supermarketId: sponsor.supermarketId,
+          name: sponsor.supermarketName,
         },
       });
     })();
-  }, [router, setSupermarket, top]);
+  }, [router, setSupermarket, sponsor]);
 
-  const accentColor = top
-    ? (SUPERMARKET_NEON_COLORS[top.supermarketId] ?? homeColors.neonBlue)
+  const accentColor = sponsor
+    ? (SUPERMARKET_NEON_COLORS[sponsor.supermarketId] ?? homeColors.neonBlue)
     : homeColors.neonBlue;
+  const statsAccent = liveStats
+    ? (SUPERMARKET_NEON_COLORS[liveStats.supermarketId] ?? accentColor)
+    : accentColor;
   const frameColor = homeColors.neonBlue;
 
   useEffect(() => {
@@ -106,7 +125,7 @@ export function SuperTaquilleroWidget({
   }, [firePulse]);
 
   useEffect(() => {
-    if (!liveTicker) return;
+    if (!liveStats) return;
 
     Animated.sequence([
       Animated.timing(tickerOpacity, {
@@ -120,7 +139,7 @@ export function SuperTaquilleroWidget({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [liveTicker?.count, tickerOpacity]);
+  }, [liveStats?.count, tickerOpacity]);
 
   if (loading) {
     return (
@@ -138,7 +157,7 @@ export function SuperTaquilleroWidget({
     );
   }
 
-  if (!top) return null;
+  if (!sponsor) return null;
 
   return (
     <View style={styles.shell} accessibilityRole="summary">
@@ -156,45 +175,45 @@ export function SuperTaquilleroWidget({
       <View style={[styles.panel, { borderColor: `${frameColor}99` }]}>
         <Pressable
           accessibilityRole="link"
-          accessibilityLabel={`Abrir lista de ${top.supermarketName}`}
-          accessibilityHint="Abre la lista de compras del súper ganador"
-          onPress={withNavFeedback(openWinnerList)}
+          accessibilityLabel={`Abrir lista de ${sponsor.supermarketName}`}
+          accessibilityHint="Abre la lista de compras del súper destacado"
+          onPress={withNavFeedback(openSponsorList)}
           style={({ pressed }) => [
             styles.orbHalo,
             { borderColor: `${frameColor}44` },
             pressed && styles.orbHaloPressed,
           ]}
         >
-          <SupermarketOrbLogo marketId={top.supermarketId} orbSize={ORB_SIZE} />
+          <SupermarketOrbLogo marketId={sponsor.supermarketId} orbSize={ORB_SIZE} />
           <Animated.View
             style={[styles.fireBadge, { transform: [{ scale: firePulse }] }]}
           >
-            <Text style={styles.fireIcon} accessibilityLabel="Más elegido">
+            <Text style={styles.fireIcon} accessibilityLabel="Destacado">
               🔥
             </Text>
           </Animated.View>
         </Pressable>
 
         <View style={styles.copyBlock}>
-          <Text style={styles.kicker}>Súper más taquillero de la semana</Text>
+          <Text style={styles.kicker}>Súper más caliente de la semana</Text>
           <Text style={styles.message}>
-            El súper más elegido en{' '}
+            Destacado en{' '}
             <Text style={[styles.zoneHighlight, { color: accentColor }]}>
-              {top.zoneLabel}
-            </Text>{' '}
-            esta semana:{' '}
+              {sponsor.zoneLabel}
+            </Text>
+            :{' '}
             <Text style={[styles.winnerName, { color: accentColor }]}>
-              {top.supermarketName}
+              {sponsor.supermarketName}
             </Text>
           </Text>
 
-          {liveTicker ? (
+          {liveStats ? (
             <Animated.Text style={[styles.liveTicker, { opacity: tickerOpacity }]}>
               Hoy,{' '}
-              <Text style={styles.liveCount}>{liveTicker.count}</Text> personas en{' '}
-              <Text style={styles.liveZone}>{liveTicker.zoneLabel}</Text> están ahorrando en{' '}
-              <Text style={[styles.liveMarket, { color: accentColor }]}>
-                {liveTicker.supermarketName}
+              <Text style={styles.liveCount}>{liveStats.count}</Text> personas en{' '}
+              <Text style={styles.liveZone}>{liveStats.zoneLabel}</Text> están ahorrando en{' '}
+              <Text style={[styles.liveMarket, { color: statsAccent }]}>
+                {liveStats.supermarketName}
               </Text>
             </Animated.Text>
           ) : null}

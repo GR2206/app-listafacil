@@ -17,7 +17,11 @@ import * as Clipboard from 'expo-clipboard';
 import type { PromoBancariaItem } from '@/types/promosBancarias';
 import { APP_FONT_FAMILY } from '@/services/preloadAppFonts';
 import { SUPERMARKET_CATALOG } from '@/data/supermarketCatalog';
-import { BankLogoBadge, resolveBankBrandKey } from '@/components/home/BankLogoBadge';
+import {
+  BankLogoBadge,
+  BankLogoWatermark,
+  resolveBankBrandKey,
+} from '@/components/home/BankLogoBadge';
 import {
   formatPesosAR,
   resolveAhorroPesos,
@@ -57,14 +61,15 @@ const TONES: Record<string, StickerTone> = {
     ribbon: '#E85D04',
     stamp: '#C44B00',
   },
+  // Celeste tipo MP pero más azul (MP = #009EE3).
   nacion: {
-    paper: '#F3F7FF',
-    ink: '#12233A',
-    muted: '#4A6078',
-    accent: '#1D4E89',
-    accentSoft: '#D6E6FA',
-    ribbon: '#1D4E89',
-    stamp: '#163A66',
+    paper: '#E6F1FA',
+    ink: '#0A2840',
+    muted: '#3A5A72',
+    accent: '#0A74C8',
+    accentSoft: '#C8DFF5',
+    ribbon: '#0A74C8',
+    stamp: '#085A9C',
   },
   provincia: {
     paper: '#F4FFF7',
@@ -92,15 +97,74 @@ function toneForBank(banco: string, medios: string[] = []): StickerTone {
   if (key === 'galicia') return TONES.galicia;
   if (key === 'nacion') return TONES.nacion;
   if (key === 'provincia') return TONES.provincia;
+  if (key === 'bnaplus') {
+    // Misma familia que Nación (billetera BNA), no verde.
+    return TONES.nacion;
+  }
   if (key === 'modo') {
     return {
-      paper: '#F5F5F5',
-      ink: '#111111',
-      muted: '#555555',
-      accent: '#111111',
-      accentSoft: '#E8E8E8',
-      ribbon: '#111111',
-      stamp: '#333333',
+      paper: '#F0FFF6',
+      ink: '#0A2A18',
+      muted: '#4A6B58',
+      accent: '#008751',
+      accentSoft: '#D4F0E2',
+      ribbon: '#008751',
+      stamp: '#00663D',
+    };
+  }
+  if (key === 'municipal') {
+    return {
+      paper: '#FFF5F5',
+      ink: '#1A0A0A',
+      muted: '#6B4444',
+      accent: '#E10600',
+      accentSoft: '#FFD6D4',
+      ribbon: '#E10600',
+      stamp: '#A10500',
+    };
+  }
+  if (key === 'mercadopago') {
+    return {
+      paper: '#EAF7FD',
+      ink: '#0A2A3A',
+      muted: '#4A6B7A',
+      accent: '#009EE3',
+      accentSoft: '#CDEFFB',
+      ribbon: '#009EE3',
+      stamp: '#0077B3',
+    };
+  }
+  if (key === 'uala') {
+    return {
+      paper: '#F3EEFF',
+      ink: '#1A1038',
+      muted: '#5A4A7A',
+      accent: '#3D14B4',
+      accentSoft: '#E0D4FF',
+      ribbon: '#3D14B4',
+      stamp: '#2A0E7A',
+    };
+  }
+  if (key === 'naranjax') {
+    return {
+      paper: '#FFF3E8',
+      ink: '#3A1A08',
+      muted: '#7A5A40',
+      accent: '#FF6A00',
+      accentSoft: '#FFE0C8',
+      ribbon: '#FF6A00',
+      stamp: '#CC5500',
+    };
+  }
+  if (key === 'personalpay') {
+    return {
+      paper: '#E8F7FD',
+      ink: '#0A2A38',
+      muted: '#4A6B7A',
+      accent: '#00ADEF',
+      accentSoft: '#C8EEFB',
+      ribbon: '#00ADEF',
+      stamp: '#0088BB',
     };
   }
   return TONES.default;
@@ -282,6 +346,12 @@ export function PromoReintegroSticker({
             { backgroundColor: tone.paper, borderColor: tone.accent },
           ]}
         >
+          <BankLogoWatermark
+            banco={item.banco}
+            medios={item.medios}
+            size={isFull ? 168 : 132}
+            opacity={0.3}
+          />
           {/* Badge vigencia */}
           <View
             style={[
@@ -305,7 +375,7 @@ export function PromoReintegroSticker({
             <View style={[styles.peelFold, { borderTopColor: tone.accentSoft }]} />
           </View>
 
-          <View style={styles.body}>
+          <View style={[styles.body, { zIndex: 1 }]}>
             <View style={styles.logoBlock}>
               <BankLogoBadge
                 banco={item.banco}

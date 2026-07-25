@@ -15,6 +15,7 @@ import { ListBannerGlowFrame } from '@/components/banners/ListBannerGlowFrame';
 import { BANNER_CONTENT_FIT } from '@/config/bannerMedia';
 import { getBannerStripMetrics } from '@/config/bannerDimensions';
 import { useBannerManager } from '@/hooks/useBannerManager';
+import { useSelectedZone } from '@/hooks/useSelectedZone';
 import { prefetchBannerAnimation, prefetchBannerImage, resolveBannerSlot } from '@/services/bannerManager';
 import type { BannerSlotId } from '@/types/banner';
 import { openBannerTarget } from '@/utils/openBannerTarget';
@@ -49,6 +50,7 @@ export function ManagedBannerSlot({
   imageStyle,
 }: ManagedBannerSlotProps) {
   const { isLoading, isReady, getBanner, manifest } = useBannerManager();
+  const selectedZone = useSelectedZone();
   const [mediaFailed, setMediaFailed] = useState(false);
   const [mediaReady, setMediaReady] = useState(false);
   const contentFit = BANNER_CONTENT_FIT[slot];
@@ -59,10 +61,10 @@ export function ManagedBannerSlot({
 
   const resolved = useMemo(() => {
     if (mediaFailed && manifest) {
-      return resolveBannerSlot(manifest, slot, true);
+      return resolveBannerSlot(manifest, slot, true, selectedZone);
     }
     return getBanner(slot);
-  }, [getBanner, manifest, mediaFailed, slot]);
+  }, [getBanner, manifest, mediaFailed, selectedZone, slot]);
 
   useEffect(() => {
     setMediaFailed(false);

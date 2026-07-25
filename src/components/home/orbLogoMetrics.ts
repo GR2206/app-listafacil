@@ -19,6 +19,8 @@ const MARKET_LOGO_TUNING: Record<string, number> = {
   dar: 1,
   jumbo: 0.96,
   arcoiris: 0.88,
+  // Logo ancho (wordmark + SUPERMERCADOS): achicar para centrar en el orbe.
+  unico: 0.78,
   // Logos horizontales: Día/Vea/Disco −20% luego −15%; Átomo −15% (solo la imagen, no el orbe).
   disco: 0.53,
   dia: 0.49,
@@ -26,6 +28,13 @@ const MARKET_LOGO_TUNING: Record<string, number> = {
   atomo: 0.75,
   changomas: 0.82,
   'la-anonima': 0.86,
+  // Logos anchos / con wordmark: margen extra dentro del orbe circular.
+  california: 0.62,
+  yaguar: 0.58,
+  maxiconsumo: 0.68,
+  vital: 0.56,
+  // Wordmark horizontal: +25% vs base inicial (quedaba chico en el orbe).
+  toledo: 0.725,
 };
 
 export function getOrbLogoSize(marketId: string, orbSize: number): number {

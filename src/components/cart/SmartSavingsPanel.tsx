@@ -17,7 +17,11 @@ import {
   getSupermarketNeonColor,
   SUPERMARKET_NEON_COLORS,
 } from '@/components/home/supermarketOrbTheme';
+import { TicketQuoteDetailModal } from '@/components/cart/TicketQuoteDetailModal';
+import type { UserPriceRecord } from '@/db/userPrices';
+import type { TicketSubstituteMap } from '@/services/similarProductSubstitute';
 import type { ScannedProductQuote, SupermarketQuote } from '@/services/smartSavingsEngine';
+import type { CartLine } from '@/types';
 import { formatCurrency } from '@/utils/formatCurrency';
 import { formatPriceSyncLabel } from '@/utils/formatPriceSync';
 import { hexToRgba } from '@/utils/hexToRgba';
@@ -47,6 +51,7 @@ interface ComparisonSuperRowProps {
   accessibilityLabel: string;
   subtitle?: string;
   badge?: string;
+  trailingIcon?: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
 }
 
@@ -59,6 +64,7 @@ function ComparisonSuperRow({
   accessibilityLabel,
   subtitle,
   badge,
+  trailingIcon = 'navigate',
   onPress,
 }: ComparisonSuperRowProps) {
   const neonColor =
@@ -146,7 +152,7 @@ function ComparisonSuperRow({
               {name}
             </Text>
             <Ionicons
-              name="navigate"
+              name={trailingIcon}
               size={12}
               color={isWinner ? OFFER_NEON_BLUE_DARK : lc.textMuted}
             />
@@ -181,6 +187,12 @@ interface SmartSavingsPanelProps {
   onDismiss?: () => void;
   onOpenMaps?: (supermarketId: string) => void;
   autoDismissMs?: number | null;
+  /** Datos para abrir el detalle del ticket (exactos + similares). */
+  cartItems?: CartLine[];
+  pricesByBarcode?: Record<string, Record<string, number>>;
+  syncedAtByBarcode?: Record<string, Record<string, string>>;
+  userPricesByBarcode?: Record<string, UserPriceRecord>;
+  substitutesByKey?: TicketSubstituteMap;
 }
 
 export function SmartSavingsPanel({
@@ -195,6 +207,11 @@ export function SmartSavingsPanel({
   onDismiss,
   onOpenMaps,
   autoDismissMs = null,
+  cartItems = [],
+  pricesByBarcode = {},
+  syncedAtByBarcode = {},
+  userPricesByBarcode = {},
+  substitutesByKey = {},
 }: SmartSavingsPanelProps) {
   const translateX = useRef(new Animated.Value(0)).current;
   const opacity = useRef(new Animated.Value(1)).current;
@@ -203,14 +220,16 @@ export function SmartSavingsPanel({
   const autoDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rotateTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [viewMode, setViewMode] = useState<ComparisonViewMode>('ticket');
+  const [detailQuote, setDetailQuote] = useState<SupermarketQuote | null>(null);
 
-  const pricedQuotes = quotes.filter((q) => q.pricedItemCount > 0);
+  const reliableQuotes = quotes.filter((q) => q.isFairComparable);
   const lastScannedQuotes = lastScannedProduct?.quotes.filter((q) => q.unitPrice > 0) ?? [];
   const lastScannedWinnerId =
     lastScannedQuotes.length > 0 ? lastScannedQuotes[0].supermarketId : null;
 
   const canShowProduct =
-    lastScannedProduct != null && lastScannedQuotes.length > 0;
+    lastScannedProduct != null && lastScannedQuotes.length >= 2;
+  const canShowTicket = reliableQuotes.length >= 2;
   const shouldRotate = rotateOnScan && itemsCount > 1 && canShowProduct;
 
   const dismissPanel = useCallback(() => {
@@ -303,9 +322,9 @@ export function SmartSavingsPanel({
     if (shouldRotate) {
       setViewMode('product');
       rotateTimer.current = setTimeout(() => {
-        switchViewMode('ticket');
+        if (canShowTicket) switchViewMode('ticket');
       }, PRODUCT_PHASE_MS);
-    } else if (canShowProduct && itemsCount <= 1) {
+    } else if (canShowProduct && (!canShowTicket || itemsCount <= 1)) {
       setViewMode('product');
     } else {
       setViewMode('ticket');
@@ -314,7 +333,7 @@ export function SmartSavingsPanel({
     return () => {
       if (rotateTimer.current) clearTimeout(rotateTimer.current);
     };
-  }, [scanFlashKey, shouldRotate, canShowProduct, itemsCount, switchViewMode]);
+  }, [scanFlashKey, shouldRotate, canShowProduct, canShowTicket, itemsCount, switchViewMode]);
 
   useEffect(() => {
     if (!autoDismissMs || !onDismiss) return;
@@ -330,17 +349,17 @@ export function SmartSavingsPanel({
     };
   }, [autoDismissMs, onDismiss, dismissPanel, scanFlashKey]);
 
-  if (pricedQuotes.length === 0 && lastScannedQuotes.length === 0) return null;
+  if (!canShowTicket && !canShowProduct) return null;
 
   const activeMode: ComparisonViewMode =
-    viewMode === 'product' && canShowProduct ? 'product' : 'ticket';
+    viewMode === 'product' && canShowProduct ? 'product' : canShowTicket ? 'ticket' : 'product';
 
   const headerLabel =
     activeMode === 'product' ? 'Este producto' : 'Total de tu lista';
 
   const pulseKey = `${scanFlashKey}-${activeMode}`;
 
-  const hasStaleSync = pricedQuotes.some((quote) => {
+  const hasStaleSync = reliableQuotes.some((quote) => {
     const syncLabel = formatPriceSyncLabel(quote.lastSyncedAt, {
       dailyReportDate: quote.dailyReportDate,
     });
@@ -409,7 +428,7 @@ export function SmartSavingsPanel({
                 />
               );
             })
-          : pricedQuotes.map((quote) => {
+          : reliableQuotes.map((quote) => {
               const isWinner = quote.supermarketId === winnerId;
               const badge =
                 quote.savingsVsMax > 0
@@ -426,22 +445,39 @@ export function SmartSavingsPanel({
                   price={quote.total}
                   isWinner={isWinner}
                   pulseKey={pulseKey}
-                  accessibilityLabel={`Abrir ${quote.name} en Google Maps${
+                  accessibilityLabel={`Ver detalle del ticket en ${quote.name}${
                     quote.savingsVsMax > 0
                       ? `, ahorrás ${formatCurrency(quote.savingsVsMax)}`
                       : ''
                   }`}
                   subtitle={
-                    !quote.isComplete
-                      ? `${quote.pricedItemCount}/${quote.totalItems} productos`
+                    quote.substitutedItemCount > 0
+                      ? `incluye ${quote.substitutedItemCount} similar${
+                          quote.substitutedItemCount === 1 ? '' : 'es'
+                        }`
                       : undefined
                   }
                   badge={badge}
-                  onPress={() => onOpenMaps?.(quote.supermarketId)}
+                  trailingIcon="list-outline"
+                  onPress={() => setDetailQuote(quote)}
                 />
               );
             })}
       </Animated.View>
+
+      <TicketQuoteDetailModal
+        visible={detailQuote != null}
+        supermarketId={detailQuote?.supermarketId ?? ''}
+        supermarketName={detailQuote?.name ?? ''}
+        ticketTotal={detailQuote?.total ?? 0}
+        items={cartItems}
+        pricesByBarcode={pricesByBarcode}
+        syncedAtByBarcode={syncedAtByBarcode}
+        userPricesByBarcode={userPricesByBarcode}
+        substitutesByKey={substitutesByKey}
+        onClose={() => setDetailQuote(null)}
+        onOpenMaps={onOpenMaps}
+      />
     </Animated.View>
   );
 }

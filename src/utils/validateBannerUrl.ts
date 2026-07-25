@@ -6,7 +6,8 @@ import {
 export function isValidHttpUrl(value: unknown): value is string {
   if (typeof value !== 'string') return false;
 
-  const trimmed = value.trim();
+  // Evita URLs pegadas con saltos de línea (rompen el Gist o el parseo).
+  const trimmed = value.replace(/\s+/g, '').trim();
   if (!trimmed) return false;
 
   try {
@@ -20,7 +21,7 @@ export function isValidHttpUrl(value: unknown): value is string {
 export function isValidBannerTargetUrl(value: unknown): value is string {
   if (typeof value !== 'string') return false;
 
-  const trimmed = value.trim();
+  const trimmed = value.replace(/\s+/g, '').trim();
   if (!trimmed) return false;
 
   if (isInstagramBannerUrl(trimmed)) {

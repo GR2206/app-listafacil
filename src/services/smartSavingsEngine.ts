@@ -1,11 +1,16 @@
 import { MOCK_SUPERMARKETS } from '@/data/mockSupermarkets';
 import type { UserPriceRecord } from '@/db/userPrices';
+import type { TicketSubstituteMap } from '@/services/similarProductSubstitute';
 import type { SupermarketSyncStatus } from '@/services/syncStatus';
 import type { CartLine } from '@/types';
 import { logPriceAudit } from '@/utils/priceAuditLog';
 import { resolveEffectiveUnitPriceForItem } from '@/utils/resolvePrice';
 import { readPriceForSupermarket, readSyncTimeForSupermarket } from '@/utils/supermarketPrices';
-import { resolveCartLinesForSupermarket, sumCartTotal } from '@/utils/resolveCartLines';
+import {
+  countSubstitutedLines,
+  resolveCartLinesForSupermarket,
+  sumCartTotal,
+} from '@/utils/resolveCartLines';
 
 export interface SupermarketQuote {
   supermarketId: string;
@@ -14,9 +19,14 @@ export interface SupermarketQuote {
   pricedItemCount: number;
   totalItems: number;
   isComplete: boolean;
+  /** Cantidad de ítems completados con un producto similar más barato. */
+  substitutedItemCount: number;
   savingsVsMax: number;
   lastSyncedAt: string | null;
   dailyReportDate: string | null;
+  /** Solo tickets completos compiten por ganador / ahorro. */
+  isFairComparable: boolean;
+  coverageRatio: number;
 }
 
 export interface SmartSavingsResult {
@@ -25,6 +35,8 @@ export interface SmartSavingsResult {
   maxTotal: number;
   winnerSavings: number;
   hasComparableQuotes: boolean;
+  /** True si hay al menos un ticket con todos los productos. */
+  hasCompleteQuotes: boolean;
 }
 
 export interface ScannedProductQuote {
@@ -88,13 +100,18 @@ function resolveQuoteSyncTimestamp(
   return remote ?? fromItems;
 }
 
+function sortQuotesForDisplay(a: SupermarketQuote, b: SupermarketQuote): number {
+  return a.total - b.total;
+}
+
 export function computeSmartSavings(
   items: CartLine[],
   pricesByBarcode: Record<string, Record<string, number>>,
   syncedAtByBarcode: Record<string, Record<string, string>> = {},
   supermarkets = MOCK_SUPERMARKETS,
   syncStatusBySuper: Record<string, SupermarketSyncStatus> = {},
-  userPricesByBarcode: Record<string, UserPriceRecord> = {}
+  userPricesByBarcode: Record<string, UserPriceRecord> = {},
+  substitutesByKey: TicketSubstituteMap = {}
 ): SmartSavingsResult {
   if (items.length === 0) {
     return {
@@ -103,16 +120,20 @@ export function computeSmartSavings(
       maxTotal: 0,
       winnerSavings: 0,
       hasComparableQuotes: false,
+      hasCompleteQuotes: false,
     };
   }
 
-  const quotes: SupermarketQuote[] = supermarkets.map((market) => {
+  const allQuotes: SupermarketQuote[] = supermarkets.map((market) => {
     const lines = resolveCartLinesForSupermarket(items, pricesByBarcode, market.id, {
       syncedAtByBarcode,
       userPricesByBarcode,
+      substitutesByKey,
     });
     const pricedItemCount = countPricedItems(lines);
+    const substitutedItemCount = countSubstitutedLines(lines);
     const total = sumCartTotal(lines);
+    const isComplete = pricedItemCount === items.length && items.length > 0;
 
     for (const item of items) {
       const precios = pricesByBarcode[item.barcode] ?? {};
@@ -130,7 +151,8 @@ export function computeSmartSavings(
       total,
       pricedItemCount,
       totalItems: items.length,
-      isComplete: pricedItemCount === items.length && items.length > 0,
+      isComplete,
+      substitutedItemCount,
       savingsVsMax: 0,
       lastSyncedAt: resolveQuoteSyncTimestamp(
         market.id,
@@ -140,35 +162,35 @@ export function computeSmartSavings(
         syncStatusBySuper
       ),
       dailyReportDate: syncStatusBySuper[market.id]?.dailyReportDate ?? null,
+      isFairComparable: isComplete && total > 0,
+      coverageRatio: items.length > 0 ? pricedItemCount / items.length : 0,
     };
   });
 
-  const comparable = quotes.filter((q) => q.pricedItemCount > 0);
+  // Solo supers con TODOS los productos (exacto o similar). Sin huecos = comparación fiable.
+  const fairQuotes = allQuotes.filter((q) => q.isFairComparable);
+  const hasCompleteQuotes = fairQuotes.length > 0;
+  const hasComparableQuotes = fairQuotes.length >= 2;
 
   const maxTotal =
-    comparable.length > 0 ? Math.max(...comparable.map((q) => q.total)) : 0;
+    fairQuotes.length > 0 ? Math.max(...fairQuotes.map((q) => q.total)) : 0;
 
-  const quotesWithSavings = quotes.map((quote) => ({
-    ...quote,
-    savingsVsMax:
-      quote.pricedItemCount > 0 && maxTotal > quote.total ? maxTotal - quote.total : 0,
-  }));
+  const quotes = fairQuotes
+    .map((quote) => ({
+      ...quote,
+      savingsVsMax: maxTotal > quote.total ? maxTotal - quote.total : 0,
+    }))
+    .sort(sortQuotesForDisplay);
 
-  const winner =
-    comparable.length > 0
-      ? comparable.reduce((best, current) => (current.total < best.total ? current : best))
-      : null;
-
-  const winnerQuote = winner
-    ? quotesWithSavings.find((q) => q.supermarketId === winner.supermarketId) ?? null
-    : null;
+  const winner = quotes.length > 0 ? quotes[0] : null;
 
   return {
-    quotes: quotesWithSavings.sort((a, b) => a.total - b.total),
-    winner: winnerQuote,
+    quotes,
+    winner,
     maxTotal,
-    winnerSavings: winnerQuote?.savingsVsMax ?? 0,
-    hasComparableQuotes: comparable.length >= 2,
+    winnerSavings: winner?.savingsVsMax ?? 0,
+    hasComparableQuotes,
+    hasCompleteQuotes,
   };
 }
 

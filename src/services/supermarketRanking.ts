@@ -6,6 +6,10 @@ import {
   TAQUILLERO_JSON_URL,
 } from '@/config/superTaquillero';
 import { getCurrentWeekKey } from '@/utils/weekKey';
+import {
+  getSupermarketsForZone,
+  isSupermarketAvailableInZone,
+} from '@/utils/supermarketCoverage';
 import { resolveZoneRegion } from '@/utils/zoneRegion';
 import { db } from '../../firebaseConfig.js';
 
@@ -45,21 +49,36 @@ function resolveSupermarketName(supermarketId: string): string {
   );
 }
 
+function filterCountsForZone(
+  counts: Record<string, number> | undefined,
+  zoneSetting: string | null
+): Record<string, number> {
+  if (!counts) return {};
+  const filtered: Record<string, number> = {};
+  for (const [supermarketId, count] of Object.entries(counts)) {
+    if (!isSupermarketAvailableInZone(supermarketId, zoneSetting)) continue;
+    const value = Math.max(0, Math.round(Number(count) || 0));
+    if (value > 0) filtered[supermarketId] = value;
+  }
+  return filtered;
+}
+
 function pickTopSupermarket(
   counts: Record<string, number> | undefined,
   zoneLabel: string,
-  weekKey: string
+  weekKey: string,
+  zoneSetting: string | null = null
 ): TopSupermarketResult | null {
-  if (!counts) return null;
+  const scoped = filterCountsForZone(counts, zoneSetting);
+  if (Object.keys(scoped).length === 0) return null;
 
   let topId = '';
   let topCount = 0;
 
-  for (const [supermarketId, count] of Object.entries(counts)) {
-    const value = Math.max(0, Math.round(Number(count) || 0));
-    if (value > topCount) {
+  for (const [supermarketId, count] of Object.entries(scoped)) {
+    if (count > topCount) {
       topId = supermarketId;
-      topCount = value;
+      topCount = count;
     }
   }
 
@@ -95,76 +114,103 @@ async function fetchRemoteRankingManifest(): Promise<RemoteRankingManifest | nul
   }
 }
 
-async function fetchRankingFromFirestore(
-  zoneKey: string,
-  zoneLabel: string,
+function buildZoneFallbackTop(
+  zoneSetting: string | null,
   weekKey: string
-): Promise<TopSupermarketResult | null> {
-  try {
-    const snap = await getDoc(doc(db, COLLECTION, zoneKey));
-    if (!snap.exists()) return null;
+): TopSupermarketResult {
+  const { label: zoneLabel } = resolveZoneRegion(zoneSetting);
+  const zoneMarkets = getSupermarketsForZone(zoneSetting);
+  const preferred = zoneMarkets[0] ?? MOCK_SUPERMARKETS[0];
 
-    const data = snap.data() as WeeklyRankingSnapshot;
-    if (data.weekKey !== weekKey) return null;
-
-    return pickTopSupermarket(data.counts, zoneLabel, weekKey);
-  } catch (error) {
-    console.warn('[Taquillero] No se pudo leer ranking de Firestore:', error);
-    return null;
-  }
+  return {
+    supermarketId: preferred?.id ?? 'vea',
+    supermarketName: preferred?.name ?? 'Vea',
+    count: 1,
+    zoneLabel,
+    weekKey,
+  };
 }
+
+let snapshotInflight:
+  | Promise<WeeklyRankingSnapshot | null>
+  | null = null;
+let snapshotInflightKey = '';
 
 export async function fetchWeeklyRankingSnapshot(
   zoneSetting: string | null
 ): Promise<WeeklyRankingSnapshot | null> {
   const { key: zoneKey, label: zoneLabel } = resolveZoneRegion(zoneSetting);
   const weekKey = getCurrentWeekKey();
+  const inflightKey = `${zoneKey}::${weekKey}`;
 
-  const manifest = await fetchRemoteRankingManifest();
-  const remoteZone = manifest?.zones?.[zoneKey];
-
-  if (remoteZone?.weekKey === weekKey && remoteZone.counts) {
-    return {
-      weekKey,
-      zoneKey,
-      zoneLabel,
-      counts: remoteZone.counts,
-    };
+  if (snapshotInflight && snapshotInflightKey === inflightKey) {
+    return snapshotInflight;
   }
 
-  try {
-    const snap = await getDoc(doc(db, COLLECTION, zoneKey));
-    if (!snap.exists()) return null;
+  snapshotInflightKey = inflightKey;
+  snapshotInflight = (async () => {
+    const manifest = await fetchRemoteRankingManifest();
+    const remoteZone = manifest?.zones?.[zoneKey];
 
-    const data = snap.data() as WeeklyRankingSnapshot;
-    if (data.weekKey !== weekKey || !data.counts) return null;
+    if (remoteZone?.counts && Object.keys(remoteZone.counts).length > 0) {
+      return {
+        weekKey: remoteZone.weekKey === weekKey ? weekKey : remoteZone.weekKey || weekKey,
+        zoneKey,
+        zoneLabel,
+        counts: remoteZone.counts,
+      };
+    }
 
-    return {
-      weekKey: data.weekKey,
-      zoneKey: data.zoneKey,
-      zoneLabel: data.zoneLabel ?? zoneLabel,
-      counts: data.counts,
-    };
-  } catch {
-    return null;
-  }
+    try {
+      const snap = await getDoc(doc(db, COLLECTION, zoneKey));
+      if (!snap.exists()) return null;
+
+      const data = snap.data() as WeeklyRankingSnapshot;
+      if (!data.counts || Object.keys(data.counts).length === 0) return null;
+
+      return {
+        weekKey: data.weekKey === weekKey ? weekKey : data.weekKey || weekKey,
+        zoneKey: data.zoneKey || zoneKey,
+        zoneLabel: data.zoneLabel ?? zoneLabel,
+        counts: data.counts,
+      };
+    } catch {
+      return null;
+    }
+  })().finally(() => {
+    if (snapshotInflightKey === inflightKey) {
+      snapshotInflight = null;
+      snapshotInflightKey = '';
+    }
+  });
+
+  return snapshotInflight;
 }
 
 export async function fetchWeeklyTopSupermarket(
   zoneSetting: string | null
 ): Promise<TopSupermarketResult | null> {
-  const { key: zoneKey, label: zoneLabel } = resolveZoneRegion(zoneSetting);
   const weekKey = getCurrentWeekKey();
-
-  const manifest = await fetchRemoteRankingManifest();
-  const remoteZone = manifest?.zones?.[zoneKey];
-
-  if (remoteZone?.weekKey === weekKey) {
-    const fromJson = pickTopSupermarket(remoteZone.counts, zoneLabel, weekKey);
-    if (fromJson) return fromJson;
+  const snapshot = await fetchWeeklyRankingSnapshot(zoneSetting);
+  if (snapshot) {
+    const fromSnap = pickTopSupermarket(
+      snapshot.counts,
+      snapshot.zoneLabel,
+      snapshot.weekKey || weekKey,
+      zoneSetting
+    );
+    if (fromSnap) return fromSnap;
   }
 
-  return fetchRankingFromFirestore(zoneKey, zoneLabel, weekKey);
+  return buildZoneFallbackTop(zoneSetting, weekKey);
+}
+
+/** Counts del ranking limitados a supers que existen en la zona. */
+export function filterRankingCountsForZone(
+  counts: Record<string, number> | undefined,
+  zoneSetting: string | null
+): Record<string, number> {
+  return filterCountsForZone(counts, zoneSetting);
 }
 
 export async function incrementSupermarketRanking(

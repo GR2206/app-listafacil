@@ -8,7 +8,13 @@ function matchesCoverage(
 ): boolean {
   const rule = entry.coverage;
 
-  if (rule.type === 'national') return true;
+  if (rule.type === 'national') {
+    if (rule.excludeCities?.length) {
+      const { key } = resolveZoneRegion(zoneSetting);
+      if (rule.excludeCities.includes(key)) return false;
+    }
+    return true;
+  }
 
   if (rule.type === 'cities') {
     const { key } = resolveZoneRegion(zoneSetting);

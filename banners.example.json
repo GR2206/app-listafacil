@@ -1,11 +1,31 @@
 {
-  "version": 1,
-  "updatedAt": "2026-06-08T12:00:00.000Z",
+  "version": 5,
+  "updatedAt": "2026-07-25T11:10:00.000Z",
   "banners": {
     "top_banner": {
       "enabled": true,
-      "imageUrl": "https://ejemplo.com/banners/home-300x100.png",
-      "targetUrl": "https://listafacil.app/ofertas"
+      "imageUrl": null,
+      "targetUrl": "mailto:listafacilgr@gmail.com",
+      "byZone": {
+        "rosario": { "imageUrl": "https://.../home-rosario-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "santa-fe": { "imageUrl": "https://.../home-santa-fe-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "caba": { "imageUrl": "https://.../home-caba-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "la-plata": { "imageUrl": "https://.../home-la-plata-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "mar-del-plata": { "imageUrl": "https://.../home-mdp-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "bahia-blanca": { "imageUrl": "https://.../home-bahia-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "cordoba": { "imageUrl": "https://.../home-cordoba-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "rio-cuarto": { "imageUrl": "https://.../home-rio-cuarto-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "mendoza": { "imageUrl": "https://.../home-mendoza-300x100.png", "targetUrl": "https://wa.me/..." },
+        "san-juan": { "imageUrl": "https://.../home-san-juan-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "san-luis": { "imageUrl": "https://.../home-san-luis-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "tucuman": { "imageUrl": "https://.../home-tucuman-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "salta": { "imageUrl": "https://.../home-salta-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "neuquen": { "imageUrl": "https://.../home-neuquen-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "parana": { "imageUrl": "https://.../home-parana-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "resistencia": { "imageUrl": "https://.../home-resistencia-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "posadas": { "imageUrl": "https://.../home-posadas-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "default": { "imageUrl": "https://.../home-default-300x100.png", "targetUrl": "mailto:listafacilgr@gmail.com" }
+      }
     },
     "bottom_banner": {
       "enabled": false,
@@ -13,8 +33,28 @@
     },
     "list_banner": {
       "enabled": true,
-      "imageUrl": "https://ejemplo.com/banners/lista-300x50.png",
-      "targetUrl": "https://listafacil.app"
+      "imageUrl": null,
+      "targetUrl": "mailto:listafacilgr@gmail.com",
+      "byZone": {
+        "rosario": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "santa-fe": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "caba": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "la-plata": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "mar-del-plata": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "bahia-blanca": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "cordoba": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "rio-cuarto": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "mendoza": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "san-juan": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "san-luis": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "tucuman": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "salta": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "neuquen": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "parana": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "resistencia": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "posadas": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" },
+        "default": { "imageUrl": null, "targetUrl": "mailto:listafacilgr@gmail.com" }
+      }
     }
   }
 }

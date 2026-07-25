@@ -19,7 +19,8 @@ export function buildSharedShoppingListDeepLink(listId: string): string {
   return `listafacil://crear-lista?id=${encodeURIComponent(listId.trim())}`;
 }
 
-export function buildSharedShoppingListShareMessage(listId: string): string {
+export function buildSharedShoppingListShareMessage(listId: string, title?: string): string {
   const deepLink = buildSharedShoppingListDeepLink(listId);
-  return `Lista de compras en ${APP_BRAND_NAME}\n\nAbrí en la app:\n${deepLink}\n\nSi no tenés la app: ${APP_DOWNLOAD_URL}`;
+  const label = title?.trim() || 'Lista de compras';
+  return `${label} en ${APP_BRAND_NAME}\n\nAbrí en la app:\n${deepLink}\n\nSi no tenés la app: ${APP_DOWNLOAD_URL}`;
 }

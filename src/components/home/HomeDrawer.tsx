@@ -69,6 +69,8 @@ const BASE_MENU_ITEMS = [
 
   { id: 'crear-lista', label: 'Crear Lista compras', icon: 'checkbox-outline' as const, href: '/crear-lista' },
 
+  { id: 'buscar', label: 'Buscar producto', icon: 'search-outline' as const, href: '/buscar' },
+
   { id: 'promos-bancarias', label: 'Hoy en mi bolsillo', icon: 'card-outline' as const, href: '/promos-bancarias' },
 
   { id: 'reportes', label: 'Mis Reportes', icon: 'flag-outline' as const, href: '/reportes' },

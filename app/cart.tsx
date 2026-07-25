@@ -316,8 +316,7 @@ function CartScreenContent() {
     supermarketId,
   ]);
 
-  const hasPricedComparison =
-    savings.hasComparableQuotes || savings.quotes.some((q) => q.pricedItemCount > 0);
+  const hasPricedComparison = savings.hasComparableQuotes;
   const showComparisonPanel =
     hasPricedComparison && items.length > 0 && !comparisonDismissed;
 
@@ -749,6 +748,11 @@ function CartScreenContent() {
                 }
               }}
               onOpenMaps={(id) => void openSupermarketInMaps(id)}
+              cartItems={items}
+              pricesByBarcode={pricesByBarcode}
+              syncedAtByBarcode={syncedAtByBarcode}
+              userPricesByBarcode={userPricesByBarcode}
+              substitutesByKey={savings.substitutesByKey}
             />
           ) : hasPricedComparison ? (
             <Pressable

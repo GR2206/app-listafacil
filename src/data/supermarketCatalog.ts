@@ -9,7 +9,7 @@ import type { ZoneRegionKey } from '@/config/zones';
  * - provinces → cualquier ciudad de esas provincias
  */
 export type SupermarketCoverageRule =
-  | { type: 'national' }
+  | { type: 'national'; excludeCities?: Array<ZoneRegionKey | string> }
   | { type: 'cities'; cities: Array<ZoneRegionKey | string> }
   | { type: 'provinces'; provinces: AppProvince[] };
 
@@ -71,15 +71,23 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     neonColor: '#00A651',
     coverage: { type: 'cities', cities: ['rosario'] },
   },
+  {
+    id: 'unico',
+    name: 'Único',
+    slug: 'unico',
+    initial: 'U',
+    neonColor: '#E30613',
+    coverage: { type: 'cities', cities: ['rosario'] },
+  },
 
-  // —— Cadenas amplias ——
+  // —— Cadenas amplias (no Posadas: ahí no hay Jumbo/Coto/Carrefour) ——
   {
     id: 'carrefour',
     name: 'Carrefour',
     slug: 'carrefour',
     initial: 'C',
     neonColor: '#3B9BFF',
-    coverage: { type: 'national' },
+    coverage: { type: 'national', excludeCities: ['posadas'] },
   },
   {
     id: 'jumbo',
@@ -87,8 +95,7 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     slug: 'jumbo',
     initial: 'J',
     neonColor: '#00E676',
-    // BA + Centro (txt); se muestra también en Cuyo/NOA vía e-commerce nacional
-    coverage: { type: 'national' },
+    coverage: { type: 'national', excludeCities: ['posadas'] },
   },
   {
     id: 'coto',
@@ -139,7 +146,8 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     slug: 'changomas',
     initial: 'C',
     neonColor: '#7CB342',
-    coverage: { type: 'provinces', provinces: [...CUYO, ...PATAGONIA] },
+    // Cuyo + Patagonia + Misiones (Posadas)
+    coverage: { type: 'provinces', provinces: [...CUYO, ...PATAGONIA, 'misiones'] },
   },
   {
     id: 'la-anonima',
@@ -148,6 +156,50 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     initial: 'A',
     neonColor: '#004A99',
     coverage: { type: 'provinces', provinces: PATAGONIA },
+  },
+
+  // —— Posadas (Misiones) ——
+  {
+    id: 'california',
+    name: 'California',
+    slug: 'california',
+    initial: 'C',
+    neonColor: '#F5A623',
+    coverage: { type: 'cities', cities: ['posadas'] },
+  },
+  {
+    id: 'yaguar',
+    name: 'Yaguar',
+    slug: 'yaguar',
+    initial: 'Y',
+    neonColor: '#00A651',
+    coverage: { type: 'cities', cities: ['posadas'] },
+  },
+  {
+    id: 'maxiconsumo',
+    name: 'Maxiconsumo',
+    slug: 'maxiconsumo',
+    initial: 'M',
+    neonColor: '#E30613',
+    coverage: { type: 'cities', cities: ['posadas'] },
+  },
+  {
+    id: 'vital',
+    name: 'Vital',
+    slug: 'vital',
+    initial: 'V',
+    neonColor: '#0091DA',
+    coverage: { type: 'cities', cities: ['posadas'] },
+  },
+
+  // —— Mar del Plata (Buenos Aires costa) ——
+  {
+    id: 'toledo',
+    name: 'Toledo',
+    slug: 'toledo',
+    initial: 'T',
+    neonColor: '#0B1F3F',
+    coverage: { type: 'cities', cities: ['mar-del-plata'] },
   },
 ];
 

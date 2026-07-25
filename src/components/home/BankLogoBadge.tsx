@@ -1,9 +1,10 @@
-import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Path, Rect, Text as SvgText } from 'react-native-svg';
+import { Image, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Text as SvgText } from 'react-native-svg';
 
+import { bankLogoImage, type BankBrandKey } from '@/assets/bankLogos';
 import { APP_FONT_FAMILY } from '@/services/preloadAppFonts';
 
-export type BankBrandKey = 'hipotecario' | 'galicia' | 'nacion' | 'provincia' | 'modo' | 'default';
+export type { BankBrandKey };
 
 export function resolveBankBrandKey(banco: string, medios: string[] = []): BankBrandKey {
   const blob = `${banco} ${medios.join(' ')}`
@@ -13,10 +14,37 @@ export function resolveBankBrandKey(banco: string, medios: string[] = []): BankB
 
   if (blob.includes('hipotecario')) return 'hipotecario';
   if (blob.includes('galicia')) return 'galicia';
-  if (blob.includes('nacion') || blob.includes('bna')) return 'nacion';
+  if (blob.includes('santander')) return 'santander';
+  if (blob.includes('icbc')) return 'icbc';
+  if (blob.includes('coinag')) return 'coinag';
+  if (blob.includes('municipal')) return 'municipal';
+  // Santa Fe antes que "bna" genérico (evitar mezclar con Nación).
+  if (
+    blob.includes('santa fe') ||
+    blob.includes('santafe') ||
+    blob.includes('nuevo banco de santa') ||
+    blob.includes('billetera santa')
+  ) {
+    return 'santafe';
+  }
+  if (blob.includes('bna+') || blob.includes('bna +') || blob.includes('bnaplus')) {
+    return 'bnaplus';
+  }
+  // Nación / BNA (sin Santa Fe).
+  if (blob.includes('nacion') || (blob.includes('bna') && !blob.includes('santa'))) {
+    return 'nacion';
+  }
   if (blob.includes('provincia') || blob.includes('cuenta dni') || blob.includes('dni')) {
     return 'provincia';
   }
+  if (blob.includes('mercado pago') || blob.includes('mercadopago') || /\bmp\b/.test(blob)) {
+    return 'mercadopago';
+  }
+  if (blob.includes('uala') || blob.includes('ualá')) return 'uala';
+  if (blob.includes('naranja')) return 'naranjax';
+  if (blob.includes('personal pay') || blob.includes('personalpay')) return 'personalpay';
+  if (blob.includes('supervielle')) return 'supervielle';
+  if (blob.includes('macro')) return 'macro';
   if (blob.includes('modo') && !blob.includes('galicia') && !blob.includes('hipotecario')) {
     return 'modo';
   }
@@ -27,104 +55,34 @@ const BRAND: Record<
   BankBrandKey,
   { bg: string; fg: string; ring: string; label: string }
 > = {
-  hipotecario: { bg: '#0F7A5A', fg: '#FFFDF8', ring: '#0A5C44', label: 'HIPOTECARIO' },
+  hipotecario: { bg: '#F36C00', fg: '#FFFDF8', ring: '#C45600', label: 'HIPOTECARIO' },
   galicia: { bg: '#E85D04', fg: '#FFFDF8', ring: '#B84700', label: 'GALICIA' },
-  nacion: { bg: '#1D4E89', fg: '#FFFDF8', ring: '#12365F', label: 'NACIÓN' },
+  nacion: { bg: '#0A74C8', fg: '#FFFFFF', ring: '#085A9C', label: 'NACIÓN' },
+  bnaplus: { bg: '#0A74C8', fg: '#FFFFFF', ring: '#085A9C', label: 'BNA+' },
   provincia: { bg: '#2D6A4F', fg: '#FFFDF8', ring: '#1B4D38', label: 'PROVINCIA' },
-  modo: { bg: '#111111', fg: '#FFFFFF', ring: '#333333', label: 'MODO' },
+  modo: { bg: '#008751', fg: '#FFFFFF', ring: '#00663D', label: 'MODO' },
+  mercadopago: { bg: '#009EE3', fg: '#FFFFFF', ring: '#0077B3', label: 'MERCADO PAGO' },
+  uala: { bg: '#3D14B4', fg: '#FFFFFF', ring: '#2A0E7A', label: 'UALÁ' },
+  naranjax: { bg: '#FF6A00', fg: '#FFFFFF', ring: '#CC5500', label: 'NARANJA X' },
+  personalpay: { bg: '#5B2EFF', fg: '#FFFFFF', ring: '#3D14B4', label: 'PERSONAL PAY' },
+  supervielle: { bg: '#2B2B2B', fg: '#FFFFFF', ring: '#111111', label: 'SUPERVIELLE' },
+  macro: { bg: '#003366', fg: '#FFFFFF', ring: '#002244', label: 'MACRO' },
+  santander: { bg: '#EC0000', fg: '#FFFFFF', ring: '#B00000', label: 'SANTANDER' },
+  icbc: { bg: '#C8102E', fg: '#FFFFFF', ring: '#8E0B20', label: 'ICBC' },
+  coinag: { bg: '#E10600', fg: '#FFFFFF', ring: '#A10500', label: 'COINAG' },
+  municipal: { bg: '#E10600', fg: '#FFFFFF', ring: '#A10500', label: 'MUNICIPAL' },
+  santafe: { bg: '#2EBE3B', fg: '#FFFFFF', ring: '#1F8F2C', label: 'SANTA FE' },
   default: { bg: '#C1121F', fg: '#FFFDF8', ring: '#8E0D16', label: 'BANCO' },
 };
 
 type BankLogoBadgeProps = {
   banco: string;
   medios?: string[];
-  /** Diámetro del logo (grande). */
   size?: number;
   showLabel?: boolean;
 };
 
-function Mark({ brandKey, bg, fg }: { brandKey: BankBrandKey; bg: string; fg: string }) {
-  if (brandKey === 'galicia') {
-    return (
-      <>
-        <Circle cx="50" cy="50" r="46" fill={bg} />
-        <SvgText x="50" y="58" fill={fg} fontSize="44" fontWeight="800" textAnchor="middle">
-          G
-        </SvgText>
-        <Path
-          d="M30 66c10 12 30 12 40 0"
-          stroke={fg}
-          strokeWidth="4"
-          fill="none"
-          strokeLinecap="round"
-        />
-      </>
-    );
-  }
-  if (brandKey === 'nacion') {
-    return (
-      <>
-        <Circle cx="50" cy="50" r="46" fill={bg} />
-        <Circle cx="50" cy="34" r="9" fill={fg} />
-        <Path d="M28 50h44" stroke={fg} strokeWidth="5" strokeLinecap="round" />
-        <Path d="M32 60h36" stroke={fg} strokeWidth="4" strokeLinecap="round" />
-        <Path d="M36 69h28" stroke={fg} strokeWidth="3.5" strokeLinecap="round" />
-        <SvgText
-          x="50"
-          y="88"
-          fill={fg}
-          fontSize="12"
-          fontWeight="800"
-          textAnchor="middle"
-          letterSpacing="1.5"
-        >
-          BNA
-        </SvgText>
-      </>
-    );
-  }
-  if (brandKey === 'hipotecario') {
-    return (
-      <>
-        <Circle cx="50" cy="50" r="46" fill={bg} />
-        <SvgText x="50" y="60" fill={fg} fontSize="34" fontWeight="800" textAnchor="middle">
-          BH
-        </SvgText>
-      </>
-    );
-  }
-  if (brandKey === 'provincia') {
-    return (
-      <>
-        <Circle cx="50" cy="50" r="46" fill={bg} />
-        <Rect x="24" y="30" width="52" height="26" rx="5" fill={fg} />
-        <SvgText x="50" y="49" fill={bg} fontSize="16" fontWeight="800" textAnchor="middle">
-          DNI
-        </SvgText>
-        <SvgText x="50" y="74" fill={fg} fontSize="11" fontWeight="800" textAnchor="middle">
-          PROV
-        </SvgText>
-      </>
-    );
-  }
-  if (brandKey === 'modo') {
-    return (
-      <>
-        <Circle cx="50" cy="50" r="46" fill={bg} />
-        <SvgText
-          x="50"
-          y="58"
-          fill={fg}
-          fontSize="20"
-          fontWeight="800"
-          textAnchor="middle"
-          letterSpacing="2"
-        >
-          MODO
-        </SvgText>
-      </>
-    );
-  }
+function FallbackMark({ bg, fg }: { bg: string; fg: string }) {
   return (
     <>
       <Circle cx="50" cy="50" r="46" fill={bg} />
@@ -135,7 +93,7 @@ function Mark({ brandKey, bg, fg }: { brandKey: BankBrandKey; bg: string; fg: st
   );
 }
 
-/** Logo de banco grande (disco + marca + nombre). */
+/** Logo de banco (disco + marca + nombre). */
 export function BankLogoBadge({
   banco,
   medios = [],
@@ -146,9 +104,14 @@ export function BankLogoBadge({
   const brand = BRAND[key];
   const markSize = Math.round(size * 0.94);
   const labelSize = Math.max(10, Math.round(size * 0.13));
+  const logo = bankLogoImage(key);
+  const pad = Math.round(markSize * 0.1);
 
   return (
-    <View style={[styles.wrap, { width: showLabel ? Math.max(size, 120) : size }]} accessibilityLabel={`Logo ${brand.label}`}>
+    <View
+      style={[styles.wrap, { width: showLabel ? Math.max(size, 120) : size }]}
+      accessibilityLabel={`Logo ${brand.label}`}
+    >
       <View
         style={[
           styles.disc,
@@ -158,13 +121,24 @@ export function BankLogoBadge({
             borderRadius: markSize / 2,
             borderColor: brand.ring,
             shadowColor: brand.ring,
+            backgroundColor: logo ? 'transparent' : '#fff',
+            borderWidth: logo ? 0 : 3,
+            elevation: logo ? 0 : 5,
+            shadowOpacity: logo ? 0 : 0.3,
           },
         ]}
       >
-        <Svg width={markSize} height={markSize} viewBox="0 0 100 100">
-          <Mark brandKey={key} bg={brand.bg} fg={brand.fg} />
-          <Circle cx="50" cy="50" r="47" fill="none" stroke={brand.fg} strokeWidth="3" opacity={0.35} />
-        </Svg>
+        {logo ? (
+          <Image
+            source={logo}
+            style={{ width: markSize - pad, height: markSize - pad }}
+            resizeMode="contain"
+          />
+        ) : (
+          <Svg width={markSize} height={markSize} viewBox="0 0 100 100">
+            <FallbackMark bg={brand.bg} fg={brand.fg} />
+          </Svg>
+        )}
       </View>
 
       {showLabel ? (
@@ -186,19 +160,50 @@ export function BankLogoBadge({
   );
 }
 
+/** Marca de agua centrada en la tarjeta (opacidad visible). */
+export function BankLogoWatermark({
+  banco,
+  medios = [],
+  size = 140,
+  opacity = 0.28,
+}: {
+  banco: string;
+  medios?: string[];
+  size?: number;
+  opacity?: number;
+}) {
+  const key = resolveBankBrandKey(banco, medios);
+  const logo = bankLogoImage(key);
+  if (!logo) return null;
+  return (
+    <Image
+      source={logo}
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        width: size,
+        height: size,
+        marginTop: -size / 2,
+        marginLeft: -size / 2,
+        opacity,
+        zIndex: 0,
+      }}
+      resizeMode="contain"
+    />
+  );
+}
+
 const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
   },
   disc: {
-    borderWidth: 3,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    backgroundColor: '#fff',
-    elevation: 5,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
     shadowRadius: 6,
   },
   label: {

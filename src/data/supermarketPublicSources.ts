@@ -50,6 +50,12 @@ export const SUPERMARKET_PUBLIC_SOURCES: SupermarketPublicSource[] = [
     websiteLabel: 'arcoirisencasa.com.ar',
   },
   {
+    id: 'unico',
+    name: 'Único',
+    websiteUrl: 'https://www.unicosupermercados.com.ar/',
+    websiteLabel: 'unicosupermercados.com.ar',
+  },
+  {
     id: 'disco',
     name: 'Disco',
     websiteUrl: 'https://www.disco.com.ar/',
@@ -84,6 +90,36 @@ export const SUPERMARKET_PUBLIC_SOURCES: SupermarketPublicSource[] = [
     name: 'La Anónima',
     websiteUrl: 'https://www.laanonima.com.ar/',
     websiteLabel: 'laanonima.com.ar',
+  },
+  {
+    id: 'california',
+    name: 'California',
+    websiteUrl: 'https://www.californiaonline.com.ar/',
+    websiteLabel: 'californiaonline.com.ar',
+  },
+  {
+    id: 'yaguar',
+    name: 'Yaguar',
+    websiteUrl: 'https://www.yaguar.com/',
+    websiteLabel: 'yaguar.com',
+  },
+  {
+    id: 'maxiconsumo',
+    name: 'Maxiconsumo',
+    websiteUrl: 'https://www.maxiconsumo.com/',
+    websiteLabel: 'maxiconsumo.com',
+  },
+  {
+    id: 'vital',
+    name: 'Vital',
+    websiteUrl: 'https://www.vital.com.ar/',
+    websiteLabel: 'vital.com.ar',
+  },
+  {
+    id: 'toledo',
+    name: 'Toledo',
+    websiteUrl: 'https://www.toledo.com.ar/',
+    websiteLabel: 'toledo.com.ar',
   },
 ];
 

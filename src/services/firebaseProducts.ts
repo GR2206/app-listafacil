@@ -16,49 +16,30 @@ import type { AppProvince } from '@/config/provinces';
 import type { Product } from '@/types';
 import { getActivePriceProvince } from '@/services/priceProvince';
 import { logPriceAudit } from '@/utils/priceAuditLog';
-
-
+import {
+  dropCrossMarketPriceOutliers,
+  isPlausibleUnitPrice,
+  SUPERMARKET_PRICE_ALIASES,
+  supermarketPriceKeys,
+} from '@/utils/supermarketPrices';
 
 const COLLECTION = 'Productos';
 
-
-
-const SUPERMARKET_PRICE_ALIASES: Record<string, string[]> = {
-  'la-reina': ['la-reina', 'La_Reina', 'la_reina', 'LA_REINA'],
-  'la-gallega': ['la-gallega', 'La_Gallega', 'la_gallega'],
-  carrefour: ['carrefour', 'Carrefour'],
-  jumbo: ['jumbo', 'Jumbo'],
-  dar: ['dar', 'DAR', 'Dar'],
-  coto: ['coto', 'Coto', 'COTO'],
-  arcoiris: ['arcoiris', 'Arcoiris', 'ARCOIRIS'],
-  disco: ['disco', 'Disco', 'DISCO'],
-  dia: ['dia', 'Dia', 'DIA'],
-  vea: ['vea', 'Vea', 'VEA'],
-  atomo: ['atomo', 'Atomo', 'ATOMO'],
-  changomas: ['changomas', 'chango_mas', 'ChangoMas'],
-  'la-anonima': ['la-anonima', 'la_anonima', 'La_Anonima'],
-};
-
-
-
 function parsePriceValue(value: unknown): number | null {
-
   if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
-
-    return Math.round(value);
-
+    const rounded = Math.round(value);
+    return isPlausibleUnitPrice(rounded) ? rounded : null;
   }
 
   if (typeof value === 'string') {
-
     const parsed = parseFloat(value.replace(',', '.'));
-
-    if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed);
-
+    if (Number.isFinite(parsed) && parsed > 0) {
+      const rounded = Math.round(parsed);
+      return isPlausibleUnitPrice(rounded) ? rounded : null;
+    }
   }
 
   return null;
-
 }
 
 
@@ -120,11 +101,7 @@ function readPriceForSupermarket(
 ): number | null {
   const provinceMap = extractProvincePreciosMap(data, province);
   const flatMap = extractFlatPreciosMap(data);
-  const keys = SUPERMARKET_PRICE_ALIASES[supermarketId] ?? [
-    supermarketId,
-    supermarketId.replace(/-/g, '_'),
-    supermarketId.replace(/-/g, ''),
-  ];
+  const keys = supermarketPriceKeys(supermarketId);
 
   const tryMap = (
     map: Record<string, unknown>,
@@ -182,10 +159,7 @@ function readSyncTimeForSupermarket(
   data: Record<string, unknown>,
   supermarketId: string
 ): string | null {
-  const keys = SUPERMARKET_PRICE_ALIASES[supermarketId] ?? [
-    supermarketId,
-    supermarketId.replace(/-/g, '_'),
-  ];
+  const keys = supermarketPriceKeys(supermarketId);
 
   for (const key of keys) {
     const underscore = key.replace(/-/g, '_');
@@ -253,7 +227,13 @@ export function extractCatalogPricesFromFirestore(
     }
   }
 
-  return { prices, syncedAt };
+  const cleaned = dropCrossMarketPriceOutliers(prices);
+  const cleanedSynced: Record<string, string> = {};
+  for (const supermarketId of Object.keys(cleaned)) {
+    if (syncedAt[supermarketId]) cleanedSynced[supermarketId] = syncedAt[supermarketId];
+  }
+
+  return { prices: cleaned, syncedAt: cleanedSynced };
 }
 
 function mapFirestoreDoc(
@@ -334,6 +314,12 @@ function scoreNameMatch(productName: string, hint: string): number {
   if (name === term) return 100;
   if (name.startsWith(term)) return 80;
   if (name.includes(term)) return 60;
+
+  const tokens = term.split(/\s+/).filter((t) => t.length >= 2);
+  if (tokens.length <= 1) return 0;
+  const hit = tokens.filter((t) => name.includes(t)).length;
+  if (hit === tokens.length) return 55;
+  if (hit > 0) return 25 + hit * 8;
   return 0;
 }
 

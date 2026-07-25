@@ -1,5 +1,26 @@
 {
-  "version": 1,
-  "updatedAt": "2026-06-08T00:00:00.000Z",
-  "homeBackgroundUrl": null
+  "version": 2,
+  "updatedAt": "2026-07-24T22:30:00.000Z",
+  "homeBackgroundUrl": null,
+  "appLogoUrl": null,
+  "taquilleroSponsorByZone": {
+    "rosario": "la-reina",
+    "santa-fe": "vea",
+    "caba": "dia",
+    "la-plata": "disco",
+    "mar-del-plata": "toledo",
+    "bahia-blanca": "disco",
+    "cordoba": "vea",
+    "rio-cuarto": "vea",
+    "mendoza": "changomas",
+    "san-juan": "atomo",
+    "san-luis": "changomas",
+    "tucuman": "vea",
+    "salta": "vea",
+    "neuquen": "la-anonima",
+    "parana": "vea",
+    "resistencia": "vea",
+    "posadas": "california",
+    "default": "vea"
+  }
 }

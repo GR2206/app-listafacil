@@ -77,6 +77,10 @@ function normalizeItem(raw: unknown): PromoBancariaItem | null {
     prioridad: typeof source.prioridad === 'number' ? source.prioridad : 0,
     venceEnHoras,
     enProximas24h: Boolean(source.enProximas24h),
+    aplicaHoy:
+      typeof (source as { aplicaHoy?: unknown }).aplicaHoy === 'boolean'
+        ? (source as { aplicaHoy: boolean }).aplicaHoy
+        : undefined,
   };
 }
 
@@ -133,7 +137,14 @@ export function filterPromosForZone(
   const promos_bancarias = [...manifest.promos_bancarias]
     .filter((p) => promoAppliesToZone(p, zoneSetting))
     .sort((a, b) => {
-      if (a.enProximas24h !== b.enProximas24h) return a.enProximas24h ? 1 : -1;
+      // Con aplicaHoy del bot: hoy primero. Si no viene, fallback a enProximas24h.
+      if (a.aplicaHoy !== undefined || b.aplicaHoy !== undefined) {
+        if (Boolean(a.aplicaHoy) !== Boolean(b.aplicaHoy)) {
+          return a.aplicaHoy ? -1 : 1;
+        }
+      } else if (a.enProximas24h !== b.enProximas24h) {
+        return a.enProximas24h ? 1 : -1;
+      }
       if (a.venceEnHoras !== b.venceEnHoras) return a.venceEnHoras - b.venceEnHoras;
       return (b.prioridad ?? 0) - (a.prioridad ?? 0);
     });

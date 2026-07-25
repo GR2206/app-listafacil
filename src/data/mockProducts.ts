@@ -43,6 +43,7 @@ const PRICE_OFFSET: Record<string, number> = {
   dar: 10,
   coto: -10,
   arcoiris: 15,
+  unico: 12,
 };
 
 function buildCatalog(): Product[] {

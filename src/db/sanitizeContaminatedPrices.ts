@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { MOCK_SUPERMARKETS } from '@/data/mockSupermarkets';
 import {
+  isPlausibleUnitPrice,
   mergeSupermarketPrice,
   mergeSupermarketSyncTime,
   parsePricesJson,
@@ -70,7 +71,7 @@ function groupPricesBySupermarket(
   const grouped: Record<string, number> = {};
 
   for (const [key, rawPrice] of Object.entries(pricesMap)) {
-    if (rawPrice <= 0) continue;
+    if (!isPlausibleUnitPrice(rawPrice)) continue;
 
     const superId = canonicalSupermarketIdForKey(key);
     if (!superId) continue;

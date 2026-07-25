@@ -18,6 +18,7 @@ import { getAppSetting, setAppSetting } from '@/db/database';
 import { APP_ZONES, SELECTED_ZONE_SETTING_KEY } from '@/config/zones';
 
 import { detectZoneFromDevice, showZoneDetectFailure } from '@/services/zoneLocation';
+import { syncPromoPushForZone } from '@/services/promoPushNotifications';
 
 import { homeColors } from '@/theme/home';
 
@@ -85,6 +86,7 @@ export default function ZonaScreen() {
   const selectZone = async (zone: string) => {
     setSelected(zone);
     await setAppSetting(SELECTED_ZONE_SETTING_KEY, zone);
+    void syncPromoPushForZone(zone);
   };
 
   const detectZone = async () => {

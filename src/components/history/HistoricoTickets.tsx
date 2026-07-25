@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -14,6 +14,8 @@ import { withClickSound } from '@/utils/withClickSound';
 
 interface HistoricoTicketsProps {
   purchases: CompletedPurchaseRecord[];
+  onDeletePurchase?: (id: string) => void;
+  onClearAll?: () => void;
 }
 
 function formatTicketDate(iso: string): string {
@@ -26,7 +28,11 @@ function formatTicketDate(iso: string): string {
   });
 }
 
-export function HistoricoTickets({ purchases }: HistoricoTicketsProps) {
+export function HistoricoTickets({
+  purchases,
+  onDeletePurchase,
+  onClearAll,
+}: HistoricoTicketsProps) {
   const router = useRouter();
   const groups = groupPurchasesByMonth(purchases);
   const { styles: menuContentStyles, m } = useMenuContentStyles();
@@ -36,6 +42,30 @@ export function HistoricoTickets({ purchases }: HistoricoTicketsProps) {
       StyleSheet.create({
         wrapper: {
           gap: m.spacingMd,
+        },
+        toolbar: {
+          flexDirection: 'row',
+          justifyContent: 'flex-end',
+          marginBottom: 2,
+        },
+        clearBtn: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 6,
+          paddingHorizontal: 12,
+          paddingVertical: 8,
+          borderRadius: radii.pill,
+          borderWidth: 1,
+          borderColor: 'rgba(193, 18, 31, 0.55)',
+          backgroundColor: 'rgba(193, 18, 31, 0.12)',
+        },
+        clearBtnPressed: {
+          opacity: 0.85,
+        },
+        clearBtnText: {
+          fontSize: Math.max(11, m.caption - 1),
+          fontWeight: '800',
+          color: '#FF8A8A',
         },
         monthSection: {
           gap: m.spacingSm,
@@ -74,6 +104,24 @@ export function HistoricoTickets({ purchases }: HistoricoTicketsProps) {
           fontSize: m.body,
           fontWeight: '800',
           color: homeColors.text,
+        },
+        headerActions: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 4,
+        },
+        deleteIconBtn: {
+          width: 34,
+          height: 34,
+          borderRadius: 17,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: 'rgba(193, 18, 31, 0.14)',
+          borderWidth: 1,
+          borderColor: 'rgba(193, 18, 31, 0.4)',
+        },
+        deleteIconPressed: {
+          opacity: 0.8,
         },
         ticketDate: {
           fontSize: Math.max(9, m.caption - 2),
@@ -138,6 +186,38 @@ export function HistoricoTickets({ purchases }: HistoricoTicketsProps) {
     [m]
   );
 
+  const confirmDeleteOne = (purchase: CompletedPurchaseRecord) => {
+    if (!onDeletePurchase) return;
+    Alert.alert(
+      'Eliminar ticket',
+      `¿Borrar la compra de ${purchase.supermarketName} (${formatCurrency(purchase.total)})?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => onDeletePurchase(purchase.id),
+        },
+      ]
+    );
+  };
+
+  const confirmClearAll = () => {
+    if (!onClearAll) return;
+    Alert.alert(
+      'Borrar historial',
+      `Se van a eliminar ${purchases.length} ticket${purchases.length === 1 ? '' : 's'} de compra. Esta acción no se puede deshacer.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Borrar todo',
+          style: 'destructive',
+          onPress: onClearAll,
+        },
+      ]
+    );
+  };
+
   if (purchases.length === 0) {
     return (
       <View style={menuContentStyles.emptyPanel}>
@@ -154,6 +234,20 @@ export function HistoricoTickets({ purchases }: HistoricoTicketsProps) {
 
   return (
     <View style={styles.wrapper}>
+      {onClearAll ? (
+        <View style={styles.toolbar}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Borrar todo el historial de tickets"
+            onPress={withClickSound(confirmClearAll)}
+            style={({ pressed }) => [styles.clearBtn, pressed && styles.clearBtnPressed]}
+          >
+            <Ionicons name="trash-outline" size={16} color="#FF8A8A" />
+            <Text style={styles.clearBtnText}>Borrar historial</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {groups.map((group) => (
         <View key={group.key} style={styles.monthSection}>
           <Text style={styles.monthLabel}>{group.label}</Text>
@@ -181,7 +275,23 @@ export function HistoricoTickets({ purchases }: HistoricoTicketsProps) {
               >
                 <View style={styles.ticketHeader}>
                   <Text style={styles.marketName}>{purchase.supermarketName}</Text>
-                  <Ionicons name="chevron-forward" size={m.iconSm} color={homeColors.textMuted} />
+                  <View style={styles.headerActions}>
+                    {onDeletePurchase ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Eliminar ticket de ${purchase.supermarketName}`}
+                        hitSlop={8}
+                        onPress={withClickSound(() => confirmDeleteOne(purchase))}
+                        style={({ pressed }) => [
+                          styles.deleteIconBtn,
+                          pressed && styles.deleteIconPressed,
+                        ]}
+                      >
+                        <Ionicons name="trash-outline" size={16} color="#FF8A8A" />
+                      </Pressable>
+                    ) : null}
+                    <Ionicons name="chevron-forward" size={m.iconSm} color={homeColors.textMuted} />
+                  </View>
                 </View>
 
                 <Text style={styles.ticketDate}>

@@ -15,7 +15,11 @@ import * as Clipboard from 'expo-clipboard';
 
 import type { PromoBancariaItem } from '@/types/promosBancarias';
 import { APP_FONT_FAMILY } from '@/services/preloadAppFonts';
-import { BankLogoBadge, resolveBankBrandKey } from '@/components/home/BankLogoBadge';
+import {
+  BankLogoBadge,
+  BankLogoWatermark,
+  resolveBankBrandKey,
+} from '@/components/home/BankLogoBadge';
 import { formatPesosAR, resolveAhorroPesos } from '@/utils/promoAhorroPesos';
 import { buildPromoBeneficioClipboardText } from '@/utils/promoBeneficioClipboard';
 import { useInstagramClipboardNoticeStore } from '@/store/instagramClipboardNoticeStore';
@@ -47,11 +51,11 @@ const TONES: Record<string, StickerTone> = {
     accentSoft: '#FFE0C8',
   },
   nacion: {
-    paper: '#F3F7FF',
-    ink: '#12233A',
-    muted: '#4A6078',
-    accent: '#1D4E89',
-    accentSoft: '#D6E6FA',
+    paper: '#E6F1FA',
+    ink: '#0A2840',
+    muted: '#3A5A72',
+    accent: '#0A74C8',
+    accentSoft: '#C8DFF5',
   },
   provincia: {
     paper: '#F4FFF7',
@@ -67,14 +71,95 @@ const TONES: Record<string, StickerTone> = {
     accent: '#C1121F',
     accentSoft: '#FDE3E5',
   },
+  modo: {
+    paper: '#F5F5F5',
+    ink: '#111111',
+    muted: '#555555',
+    accent: '#111111',
+    accentSoft: '#E8E8E8',
+  },
+  mercadopago: {
+    paper: '#EAF7FD',
+    ink: '#0A2A3A',
+    muted: '#4A6B7A',
+    accent: '#009EE3',
+    accentSoft: '#CDEFFB',
+  },
+  uala: {
+    paper: '#F3EEFF',
+    ink: '#1A1038',
+    muted: '#5A4A7A',
+    accent: '#3D14B4',
+    accentSoft: '#E0D4FF',
+  },
+  naranjax: {
+    paper: '#FFF3E8',
+    ink: '#3A1A08',
+    muted: '#7A5A40',
+    accent: '#FF6A00',
+    accentSoft: '#FFE0C8',
+  },
+  personalpay: {
+    paper: '#E8F7FD',
+    ink: '#0A2A38',
+    muted: '#4A6B7A',
+    accent: '#00ADEF',
+    accentSoft: '#C8EEFB',
+  },
 };
 
 function toneForBank(banco: string, medios: string[] = []): StickerTone {
   const key = resolveBankBrandKey(banco, medios);
-  if (key === 'hipotecario') return TONES.hipotecario;
-  if (key === 'galicia') return TONES.galicia;
-  if (key === 'nacion') return TONES.nacion;
-  if (key === 'provincia') return TONES.provincia;
+  if (TONES[key]) return TONES[key];
+  // Tonos rápidos para marcas nuevas con logo.
+  if (key === 'santander' || key === 'coinag' || key === 'icbc') {
+    return {
+      paper: '#FFF5F5',
+      ink: '#2A0A0A',
+      muted: '#7A4545',
+      accent: '#EC0000',
+      accentSoft: '#FFD6D6',
+    };
+  }
+  if (key === 'bnaplus') {
+    return TONES.nacion;
+  }
+  if (key === 'santafe') {
+    return {
+      paper: '#F0FFF2',
+      ink: '#0F2A14',
+      muted: '#4A6B52',
+      accent: '#2EBE3B',
+      accentSoft: '#D4F7D8',
+    };
+  }
+  if (key === 'modo') {
+    return {
+      paper: '#F0FFF6',
+      ink: '#0A2A18',
+      muted: '#4A6B58',
+      accent: '#008751',
+      accentSoft: '#D4F0E2',
+    };
+  }
+  if (key === 'municipal') {
+    return {
+      paper: '#FFF5F5',
+      ink: '#1A0A0A',
+      muted: '#6B4444',
+      accent: '#E10600',
+      accentSoft: '#FFD6D4',
+    };
+  }
+  if (key === 'macro') {
+    return {
+      paper: '#F3F6FA',
+      ink: '#0A1A2A',
+      muted: '#4A6078',
+      accent: '#003366',
+      accentSoft: '#D6E0EC',
+    };
+  }
   return TONES.default;
 }
 
@@ -183,9 +268,16 @@ export function CompactPromoSticker({
               paddingHorizontal: pad,
               paddingBottom: Math.round(8 * s),
               borderRadius: Math.round(14 * s),
+              overflow: 'hidden',
             },
           ]}
         >
+          <BankLogoWatermark
+            banco={item.banco}
+            medios={item.medios}
+            size={Math.round(108 * s)}
+            opacity={0.3}
+          />
           <View style={[styles.hoy, item.enProximas24h ? styles.soon : styles.hoyOn]}>
             <Text
               style={[
@@ -198,7 +290,7 @@ export function CompactPromoSticker({
             </Text>
           </View>
 
-          <View style={styles.logoWrap}>
+          <View style={[styles.logoWrap, { zIndex: 1 }]}>
             <BankLogoBadge
               banco={item.banco}
               medios={item.medios}
@@ -208,7 +300,7 @@ export function CompactPromoSticker({
           </View>
 
           <Text
-            style={[styles.banco, { color: tone.muted, fontSize: Math.round(11 * s) }]}
+            style={[styles.banco, { color: tone.muted, fontSize: Math.round(11 * s), zIndex: 1 }]}
             numberOfLines={1}
           >
             {item.banco}

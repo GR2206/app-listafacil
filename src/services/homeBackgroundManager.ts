@@ -10,6 +10,35 @@ let cachedManifest: HomeAppManifest | null = null;
 let usedRemoteManifest = false;
 const prefetchedUrls = new Set<string>();
 
+function normalizeSponsorMap(
+  raw: unknown
+): HomeAppManifest['taquilleroSponsorByZone'] {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+
+  const out: NonNullable<HomeAppManifest['taquilleroSponsorByZone']> = {};
+  for (const [zoneKey, value] of Object.entries(raw as Record<string, unknown>)) {
+    const key = zoneKey.trim().toLowerCase();
+    if (!key) continue;
+
+    if (typeof value === 'string' && value.trim()) {
+      out[key] = value.trim().toLowerCase();
+      continue;
+    }
+
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const entry = value as { supermarketId?: unknown; name?: unknown };
+      if (typeof entry.supermarketId === 'string' && entry.supermarketId.trim()) {
+        out[key] = {
+          supermarketId: entry.supermarketId.trim().toLowerCase(),
+          name: typeof entry.name === 'string' ? entry.name.trim() : undefined,
+        };
+      }
+    }
+  }
+
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 function normalizeManifest(raw: unknown): HomeAppManifest {
   const source = (raw && typeof raw === 'object' ? raw : {}) as Partial<HomeAppManifest>;
 
@@ -20,6 +49,7 @@ function normalizeManifest(raw: unknown): HomeAppManifest {
       ? source.homeBackgroundUrl.trim()
       : null,
     appLogoUrl: isValidHttpUrl(source.appLogoUrl) ? source.appLogoUrl.trim() : null,
+    taquilleroSponsorByZone: normalizeSponsorMap(source.taquilleroSponsorByZone),
   };
 }
 

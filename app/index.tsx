@@ -20,6 +20,7 @@ import { HomeSupermarketGrid } from '@/components/home/HomeSupermarketGrid';
 import { HomeCatalogCarousel } from '@/components/home/HomeCatalogCarousel';
 import { HomeCyberTopBanner } from '@/components/home/HomeCyberTopBanner';
 import { HomeDrawer } from '@/components/home/HomeDrawer';
+import { HomeSearchEntry } from '@/components/home/HomeSearchEntry';
 import { HomeTexturedBackground } from '@/components/home/HomeTexturedBackground';
 import { FinanzasModule } from '@/components/home/FinanzasModule';
 import { useCartStore } from '@/store/cartStore';
@@ -44,6 +45,7 @@ export default function SupermarketSelectScreen() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [pageIndex, setPageIndex] = useState(0);
   const [pagerHeight, setPagerHeight] = useState(0);
+  const [finanzasMounted, setFinanzasMounted] = useState(false);
   const { loading, favoriteId, hotIds, liveTicker } = useHomeGamification();
   const pagerRef = useRef<ScrollView>(null);
 
@@ -52,6 +54,7 @@ export default function SupermarketSelectScreen() {
   const footerPad = Math.max(insets.bottom, spacing.xs) + spacing.lg;
 
   const goToFinanzas = useCallback(() => {
+    setFinanzasMounted(true);
     pagerRef.current?.scrollTo({ x: screenWidth, animated: true });
     setPageIndex(1);
   }, [screenWidth]);
@@ -73,8 +76,9 @@ export default function SupermarketSelectScreen() {
 
   const onPagerScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const x = e.nativeEvent.contentOffset.x;
-    const next = Math.round(x / Math.max(screenWidth, 1));
-    setPageIndex(Math.min(1, Math.max(0, next)));
+    const next = Math.min(1, Math.max(0, Math.round(x / Math.max(screenWidth, 1))));
+    if (next === 1) setFinanzasMounted(true);
+    setPageIndex(next);
   };
 
   const pageH = pagerHeight > 0 ? pagerHeight : undefined;
@@ -111,15 +115,7 @@ export default function SupermarketSelectScreen() {
 
             <HomeCatalogCarousel />
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Ir al módulo de finanzas"
-              onPress={withNavFeedback(goToFinanzas)}
-              style={({ pressed }) => [styles.swipeHint, pressed && styles.menuPressed]}
-            >
-              <Text style={styles.swipeHintText}>Finanzas</Text>
-              <Ionicons name="chevron-forward" size={14} color={finanzasColors.accentSoft} />
-            </Pressable>
+            <HomeSearchEntry />
 
             <ScrollView
               style={styles.scroll}
@@ -130,6 +126,15 @@ export default function SupermarketSelectScreen() {
             >
               <View style={styles.headingZone}>
                 <HomeHeroHeading />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Ir al módulo de finanzas"
+                  onPress={withNavFeedback(goToFinanzas)}
+                  style={({ pressed }) => [styles.swipeHintInline, pressed && styles.menuPressed]}
+                >
+                  <Text style={styles.swipeHintText}>Finanzas</Text>
+                  <Ionicons name="chevron-forward" size={14} color={finanzasColors.accentSoft} />
+                </Pressable>
                 <SuperTaquilleroWidget gamificationLoading={loading} liveTicker={liveTicker} />
               </View>
 
@@ -157,7 +162,11 @@ export default function SupermarketSelectScreen() {
         </View>
 
         <View style={{ width: screenWidth, height: pageH }}>
-          <FinanzasModule width={screenWidth} showBackButton onBack={goToHome} />
+          {finanzasMounted ? (
+            <FinanzasModule width={screenWidth} showBackButton onBack={goToHome} />
+          ) : (
+            <View style={{ flex: 1, width: screenWidth, backgroundColor: finanzasColors.background }} />
+          )}
         </View>
       </ScrollView>
 
@@ -205,11 +214,8 @@ const styles = StyleSheet.create({
     opacity: 0.75,
     transform: [{ scale: 0.96 }],
   },
-  swipeHint: {
+  swipeHintInline: {
     alignSelf: 'flex-end',
-    marginRight: MENU_CONTENT_PADDING_H,
-    marginTop: 2,
-    marginBottom: 4,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
@@ -238,7 +244,7 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
     gap: spacing.sm,
-    minHeight: 168,
+    minHeight: 120,
   },
   gridZone: {
     alignItems: 'center',

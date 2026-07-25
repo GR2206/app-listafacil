@@ -121,6 +121,30 @@ export function filterOfertaDiaForZone(
   return { oferta_dia };
 }
 
+/** Slides del carrusel home: pocas, las de mayor % de ahorro. */
+export const OFERTA_DIA_CAROUSEL_LIMIT = 10;
+
+export function pickTopOfertasForCarousel(
+  items: OfertaDiaItem[],
+  limit = OFERTA_DIA_CAROUSEL_LIMIT
+): OfertaDiaItem[] {
+  return [...items]
+    .sort((a, b) => {
+      const ahorroA = a.ahorroPct ?? -1;
+      const ahorroB = b.ahorroPct ?? -1;
+      if (ahorroB !== ahorroA) return ahorroB - ahorroA;
+
+      const imgA = a.imagen?.trim() ? 1 : 0;
+      const imgB = b.imagen?.trim() ? 1 : 0;
+      if (imgB !== imgA) return imgB - imgA;
+
+      const priceA = Number(String(a.precio).replace(/[^\d.]/g, '')) || Number.POSITIVE_INFINITY;
+      const priceB = Number(String(b.precio).replace(/[^\d.]/g, '')) || Number.POSITIVE_INFINITY;
+      return priceA - priceB;
+    })
+    .slice(0, limit);
+}
+
 export async function fetchOfertaDiaManifest(options?: {
   forceRefresh?: boolean;
 }): Promise<{ manifest: OfertaDiaManifest; fromRemote: boolean }> {

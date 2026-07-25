@@ -25,17 +25,19 @@ import { subscribeToAppUpdateChecks, type AppUpdatePrompt } from '@/services/app
 import { prepareAppResources } from '@/services/prepareAppResources';
 import { UpdateAvailableModal } from '@/components/update/UpdateAvailableModal';
 import { InstagramClipboardHeadsUp } from '@/components/banners/InstagramClipboardHeadsUp';
+import {
+  initPromoPushNotifications,
+  registerPromoPushResponseListener,
+} from '@/services/promoPushNotifications';
 import { initInstagramClipboardNotifications } from '@/utils/instagramClipboardNotice';
 
 
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
-
-
-const BIENVENIDA_MS = 2500;
-
-const FADE_MS = 500;
+/** Bienvenida corta: el trabajo pesado ya no bloquea el splash. */
+const BIENVENIDA_MS = 900;
+const FADE_MS = 280;
 
 
 
@@ -59,6 +61,8 @@ export default function RootLayout() {
   useEffect(() => {
     void logAppEvent('app_open');
     void initInstagramClipboardNotifications();
+    void initPromoPushNotifications();
+    return registerPromoPushResponseListener();
   }, []);
 
 

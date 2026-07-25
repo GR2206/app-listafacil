@@ -60,6 +60,13 @@ export function ThemedStack() {
 
         <Stack.Screen name="crear-lista" options={{ ...MENU_SCREEN_OPTIONS, headerShown: false }} />
 
+        <Stack.Screen name="buscar" options={{ ...MENU_SCREEN_OPTIONS, headerShown: false }} />
+
+        <Stack.Screen
+          name="buscar-precios"
+          options={{ ...MENU_SCREEN_OPTIONS, headerShown: false }}
+        />
+
         <Stack.Screen name="reportes" options={{ ...MENU_SCREEN_OPTIONS, headerShown: false }} />
 
         <Stack.Screen name="zona" options={{ ...MENU_SCREEN_OPTIONS, headerShown: false }} />

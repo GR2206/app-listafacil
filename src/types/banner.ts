@@ -2,6 +2,14 @@ export type BannerSlotId = 'top_banner' | 'bottom_banner' | 'list_banner';
 
 export type BannerMediaType = 'lottie' | 'image' | 'fallback';
 
+/** Override por zona (regionKey: rosario, posadas, mendoza…). */
+export type BannerZoneOverride = {
+  enabled?: boolean;
+  imageUrl?: string | null;
+  animationUrl?: string | null;
+  targetUrl?: string | null;
+};
+
 export interface BannerSlotConfig {
   enabled?: boolean;
   /** URL de imagen estática (jpg, png, webp). */
@@ -9,6 +17,11 @@ export interface BannerSlotConfig {
   /** URL de animación Lottie (.json) desde el Gist o CDN. */
   animationUrl?: string | null;
   targetUrl?: string | null;
+  /**
+   * Publicidad distinta por región (misma mecánica que el banner del medio).
+   * Ej: { "posadas": { "imageUrl": "...", "targetUrl": "..." }, "default": { ... } }
+   */
+  byZone?: Record<string, BannerZoneOverride>;
 }
 
 /** Slide del carousel de catálogo del día (home). */

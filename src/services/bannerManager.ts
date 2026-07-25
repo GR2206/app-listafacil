@@ -21,6 +21,8 @@ import type {
 import { fetchRemoteJson } from '@/utils/fetchRemoteJson';
 import { isLottieUrl } from '@/utils/isLottieUrl';
 import { isValidBannerTargetUrl, isValidHttpUrl } from '@/utils/validateBannerUrl';
+import { resolveZoneRegion } from '@/utils/zoneRegion';
+import type { BannerZoneOverride } from '@/types/banner';
 
 const SLOT_IDS: BannerSlotId[] = ['top_banner', 'bottom_banner', 'list_banner'];
 
@@ -105,6 +107,109 @@ function normalizeCarousel(raw: unknown): HomeCarouselConfig {
   };
 }
 
+function normalizeZoneOverride(raw: unknown): BannerZoneOverride | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const entry = raw as Partial<BannerZoneOverride>;
+  const rawImage = typeof entry.imageUrl === 'string' ? entry.imageUrl.replace(/\s+/g, '').trim() : null;
+  const rawAnim =
+    typeof entry.animationUrl === 'string' ? entry.animationUrl.replace(/\s+/g, '').trim() : null;
+  const rawTarget =
+    typeof entry.targetUrl === 'string' ? entry.targetUrl.replace(/\s+/g, '').trim() : null;
+
+  const imageUrl = isValidHttpUrl(rawImage) ? rawImage : null;
+  const animationUrl = isLottieUrl(rawAnim)
+    ? rawAnim
+    : isLottieUrl(rawImage)
+      ? rawImage
+      : null;
+
+  const override: BannerZoneOverride = {
+    enabled: entry.enabled,
+    imageUrl: imageUrl && !isLottieUrl(imageUrl) ? imageUrl : null,
+    animationUrl,
+    targetUrl: isValidBannerTargetUrl(rawTarget) ? rawTarget : null,
+  };
+
+  // Vacío útil solo si al menos define algo (enabled / media / link).
+  if (
+    override.enabled === undefined &&
+    !override.imageUrl &&
+    !override.animationUrl &&
+    !override.targetUrl
+  ) {
+    return null;
+  }
+
+  return override;
+}
+
+function normalizeByZone(raw: unknown): Record<string, BannerZoneOverride> | undefined {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const out: Record<string, BannerZoneOverride> = {};
+  for (const [zoneKey, value] of Object.entries(raw as Record<string, unknown>)) {
+    const key = zoneKey.trim().toLowerCase();
+    if (!key) continue;
+    const override = normalizeZoneOverride(value);
+    if (override) out[key] = override;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+function normalizeSlotConfig(entry: Partial<BannerSlotConfig>): BannerSlotConfig {
+  const imageUrl = isValidHttpUrl(entry.imageUrl) ? entry.imageUrl!.trim() : null;
+  const animationUrl = isLottieUrl(entry.animationUrl)
+    ? entry.animationUrl!.trim()
+    : isLottieUrl(entry.imageUrl)
+      ? entry.imageUrl!.trim()
+      : null;
+
+  return {
+    enabled: entry.enabled !== false,
+    imageUrl: imageUrl && !isLottieUrl(imageUrl) ? imageUrl : null,
+    animationUrl,
+    targetUrl: isValidBannerTargetUrl(entry.targetUrl) ? entry.targetUrl!.trim() : null,
+    byZone: normalizeByZone(entry.byZone),
+  };
+}
+
+function zoneOverrideHasMedia(override: BannerZoneOverride | null | undefined): boolean {
+  if (!override) return false;
+  return Boolean(
+    (override.imageUrl && isValidHttpUrl(override.imageUrl)) ||
+      (override.animationUrl && isLottieUrl(override.animationUrl))
+  );
+}
+
+/**
+ * Fusiona creativo base + override de zona.
+ * Solo aplica byZone[ciudad] si tiene imagen/animación real (publicidad vendida).
+ * Si la zona no tiene → banner general (base del Gist o fallback local programado).
+ */
+export function mergeBannerConfigForZone(
+  base: BannerSlotConfig,
+  zoneSetting: string | null | undefined
+): BannerSlotConfig {
+  const byZone = base.byZone;
+  if (!byZone) return base;
+
+  const { key: zoneKey } = resolveZoneRegion(zoneSetting ?? null);
+  const zoneOverride = byZone[zoneKey];
+
+  // Sin creativo zonal → general (no usar byZone.default para tapar todas las ciudades).
+  if (!zoneOverrideHasMedia(zoneOverride)) {
+    return base;
+  }
+
+  return {
+    enabled:
+      zoneOverride!.enabled !== undefined ? zoneOverride!.enabled !== false : base.enabled !== false,
+    imageUrl: zoneOverride!.imageUrl ?? base.imageUrl,
+    animationUrl: zoneOverride!.animationUrl ?? null,
+    targetUrl: zoneOverride!.targetUrl ?? base.targetUrl,
+    byZone: base.byZone,
+  };
+}
+
 function normalizeManifest(raw: unknown): BannerManifest {
   const source = (raw && typeof raw === 'object' ? raw : {}) as Partial<BannerManifest>;
   const banners = (source.banners ?? {}) as Partial<
@@ -114,20 +219,7 @@ function normalizeManifest(raw: unknown): BannerManifest {
   const normalized = {} as BannerManifest['banners'];
 
   for (const slot of SLOT_IDS) {
-    const entry = banners[slot] ?? {};
-    const imageUrl = isValidHttpUrl(entry.imageUrl) ? entry.imageUrl.trim() : null;
-    const animationUrl = isLottieUrl(entry.animationUrl)
-      ? entry.animationUrl.trim()
-      : isLottieUrl(entry.imageUrl)
-        ? entry.imageUrl!.trim()
-        : null;
-
-    normalized[slot] = {
-      enabled: entry.enabled !== false,
-      imageUrl: imageUrl && !isLottieUrl(imageUrl) ? imageUrl : null,
-      animationUrl,
-      targetUrl: isValidBannerTargetUrl(entry.targetUrl) ? entry.targetUrl.trim() : null,
-    };
+    normalized[slot] = normalizeSlotConfig(banners[slot] ?? {});
   }
 
   return {
@@ -252,57 +344,35 @@ export function hasRemoteBannerCreative(resolved: ResolvedBanner): boolean {
 }
 
 export function resolveBannerSlot(
-
   manifest: BannerManifest,
-
   slot: BannerSlotId,
-
-  forceLocalFallback = false
-
+  forceLocalFallback = false,
+  zoneSetting: string | null = null
 ): ResolvedBanner {
-
-  const config = manifest.banners[slot] ?? { enabled: true };
-
+  const base = manifest.banners[slot] ?? { enabled: true };
+  const config = mergeBannerConfigForZone(base, zoneSetting);
   const enabled = config.enabled !== false;
-
   const targetUrl = isValidBannerTargetUrl(config.targetUrl) ? config.targetUrl!.trim() : null;
-
-
+  const { key: zoneKey } = resolveZoneRegion(zoneSetting);
 
   if (!forceLocalFallback) {
-
     const animationUrl = resolveAnimationUrl(config);
 
-
-
     if (animationUrl) {
-
       return {
-
         slot,
-
         enabled,
-
         mediaType: 'lottie',
-
         animationUrl,
-
         targetUrl,
-
         isRemote: true,
-
       };
-
     }
-
-
 
     const hasRemoteImage = isValidHttpUrl(config.imageUrl);
 
-
-
     if (hasRemoteImage) {
-      const cacheKey = manifestCacheKey(manifest);
+      const cacheKey = `${manifestCacheKey(manifest)}-${zoneKey}`;
 
       return {
         slot,
@@ -315,27 +385,16 @@ export function resolveBannerSlot(
         isRemote: true,
       };
     }
-
   }
 
-
-
   return {
-
     slot,
-
     enabled,
-
     mediaType: 'fallback',
-
     imageSource: BANNER_FALLBACK_IMAGES[slot],
-
     targetUrl,
-
     isRemote: false,
-
   };
-
 }
 
 
@@ -411,18 +470,26 @@ export async function prefetchBannerAnimation(url: string): Promise<boolean> {
 export async function prefetchManifestImages(manifest: BannerManifest): Promise<void> {
   const tasks: Promise<boolean>[] = [];
 
+  const enqueueConfig = (config: BannerSlotConfig | BannerZoneOverride | undefined) => {
+    if (!config) return;
+    const animationUrl = resolveAnimationUrl(config as BannerSlotConfig);
+    if (animationUrl) {
+      tasks.push(prefetchBannerAnimation(animationUrl));
+      return;
+    }
+    if (isValidHttpUrl(config.imageUrl)) {
+      tasks.push(prefetchBannerImage(config.imageUrl!));
+    }
+  };
+
   for (const slot of SLOT_IDS) {
     const config = manifest.banners[slot];
     if (!config) continue;
-
-    const animationUrl = resolveAnimationUrl(config);
-    if (animationUrl) {
-      tasks.push(prefetchBannerAnimation(animationUrl));
-      continue;
-    }
-
-    if (isValidHttpUrl(config.imageUrl)) {
-      tasks.push(prefetchBannerImage(config.imageUrl));
+    enqueueConfig(config);
+    if (config.byZone) {
+      for (const override of Object.values(config.byZone)) {
+        enqueueConfig(override);
+      }
     }
   }
 

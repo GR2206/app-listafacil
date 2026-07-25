@@ -33,7 +33,7 @@ export function ShoppingChecklistButton({ onPress }: ShoppingChecklistButtonProp
       ]}
     >
       <Ionicons name="checkbox-outline" size={c.scanIconSize} color={theme.primary} />
-      <Text style={[styles.label, { fontSize: c.scanFontSize, color: theme.text }]}>
+      <Text style={[styles.label, { fontSize: c.scanFontSize, color: lc.text }]}>
         Mi lista
       </Text>
     </Pressable>

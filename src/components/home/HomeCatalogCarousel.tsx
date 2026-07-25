@@ -18,14 +18,15 @@ import {
   fetchOfertaDiaManifest,
   filterOfertaDiaForZone,
   getStartupOfertaDiaManifest,
+  pickTopOfertasForCarousel,
   prefetchOfertaDiaImages,
 } from '@/services/ofertaDiaManager';
 import { useCartStore } from '@/store/cartStore';
 import { MOCK_SUPERMARKETS } from '@/data/mockSupermarkets';
 import { SELECTED_ZONE_SETTING_KEY } from '@/config/zones';
 import { getAppSetting } from '@/db/database';
-import { SUPERMARKET_LOGOS } from '@/assets/supermarketLogos';
-import { SUPERMARKET_NEON_COLORS } from '@/components/home/supermarketOrbTheme';
+import { SupermarketLogoBadge } from '@/components/home/SupermarketLogoBadge';
+import { getSupermarketNeonColor } from '@/components/home/supermarketOrbTheme';
 import type { OfertaDiaItem } from '@/types/ofertaDia';
 import type { Product } from '@/types';
 import { logSupermarketClick } from '@/services/analytics';
@@ -41,7 +42,7 @@ const CAROUSEL_HEIGHT_MIN = 168;
 const CAROUSEL_HEIGHT_MAX = 236;
 const SIDE_INSET = spacing.sm;
 const CTA_RED = colors.danger;
-const LOGO_SIZE = 34;
+const LOGO_BADGE_SIZE = 44;
 
 function formatPriceLabel(precio: string): string {
   const digits = precio.replace(/[^\d]/g, '');
@@ -82,7 +83,9 @@ export function HomeCatalogCarousel() {
   const addProduct = useCartStore((s) => s.addProduct);
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const startup = getStartupOfertaDiaManifest();
-  const [items, setItems] = useState<OfertaDiaItem[]>(startup?.oferta_dia ?? []);
+  const [items, setItems] = useState<OfertaDiaItem[]>(() =>
+    pickTopOfertasForCarousel(startup?.oferta_dia ?? [])
+  );
   const [activeIndex, setActiveIndex] = useState(0);
   const [addingId, setAddingId] = useState<number | null>(null);
 
@@ -92,8 +95,10 @@ export function HomeCatalogCarousel() {
       getAppSetting(SELECTED_ZONE_SETTING_KEY),
     ]);
     const filtered = filterOfertaDiaForZone(manifest, zoneSetting);
-    setItems(filtered.oferta_dia);
-    await prefetchOfertaDiaImages(filtered);
+    const top = pickTopOfertasForCarousel(filtered.oferta_dia);
+    setItems(top);
+    // Solo precargar las 10 del carrusel (no las 500 del feed).
+    await prefetchOfertaDiaImages({ oferta_dia: top });
   }, []);
 
   useFocusEffect(
@@ -104,7 +109,7 @@ export function HomeCatalogCarousel() {
 
   useEffect(() => {
     const onAppStateChange = (state: AppStateStatus) => {
-      if (state === 'active') void load(true);
+      if (state === 'active') void load(false);
     };
     const sub = AppState.addEventListener('change', onAppStateChange);
     return () => sub.remove();
@@ -151,9 +156,9 @@ export function HomeCatalogCarousel() {
       const market = resolveSupermarket(item);
       const busy = addingId === item.id;
       const canAdd = Boolean(market && toCartProduct(item, market.id));
-      const neon =
-        (market && SUPERMARKET_NEON_COLORS[market.id]) || homeColors.bannerPremiumBorder;
-      const logoSource = market ? SUPERMARKET_LOGOS[market.id] : undefined;
+      const neon = market
+        ? getSupermarketNeonColor(market.id)
+        : homeColors.bannerPremiumBorder;
 
       return (
         <View
@@ -201,18 +206,12 @@ export function HomeCatalogCarousel() {
                 </View>
               </View>
 
-              {logoSource ? (
-                <View
-                  style={[styles.logoCorner, { borderColor: neon }]}
-                  accessibilityLabel={market ? `Oferta de ${market.name}` : undefined}
-                >
-                  <Image
-                    source={logoSource}
-                    style={styles.logoImage}
-                    contentFit="contain"
-                    cachePolicy="memory-disk"
-                  />
-                </View>
+              {market ? (
+                <SupermarketLogoBadge
+                  marketId={market.id}
+                  size={LOGO_BADGE_SIZE}
+                  accessibilityLabel={`Oferta de ${market.name}`}
+                />
               ) : null}
             </View>
 
@@ -376,25 +375,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     color: '#FFE08A',
-  },
-  logoCorner: {
-    width: LOGO_SIZE,
-    height: LOGO_SIZE,
-    borderRadius: LOGO_SIZE / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.96)',
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 3,
-  },
-  logoImage: {
-    width: LOGO_SIZE - 8,
-    height: LOGO_SIZE - 8,
   },
   cardCopy: {
     flex: 1,

@@ -5,16 +5,15 @@ import { APP_FONT_FAMILY } from '@/services/preloadAppFonts';
 import { homeColors } from '@/theme/home';
 import { spacing, radii } from '@/theme';
 
-const HEADING = '¿A QUE SUPERMERCADO VAS HOY?';
-const SUBHEADING = 'Selecciona la sucursal donde te encuentras';
+const HEADING = '¿A QUÉ SÚPER VAS HOY?';
 const GLOW_CYCLE_MS = 4000;
 
 export function HomeHeroHeading() {
   const { width } = useWindowDimensions();
   const glowPulse = useRef(new Animated.Value(0.28)).current;
 
-  const titleSize = width < 340 ? 22 : width < 390 ? 26 : 30;
-  const lineHeight = Math.round(titleSize * 1.05);
+  const titleSize = width < 340 ? 18 : width < 390 ? 20 : 22;
+  const lineHeight = Math.round(titleSize * 1.1);
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -126,8 +125,6 @@ export function HomeHeroHeading() {
           {HEADING}
         </Text>
       </View>
-
-      <Text style={styles.subtitle}>{SUBHEADING}</Text>
       </View>
     </View>
   );
@@ -147,12 +144,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: homeColors.border,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  placeholder: {
-    height: 88,
-    width: '100%',
-    maxWidth: 380,
+    paddingVertical: spacing.sm + 2,
   },
   titleStack: {
     width: '100%',
@@ -163,14 +155,5 @@ const styles = StyleSheet.create({
     position: 'absolute',
     textAlign: 'center',
     width: '100%',
-  },
-  subtitle: {
-    marginTop: spacing.md,
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#94A3B8',
-    textAlign: 'center',
-    letterSpacing: 0.25,
-    lineHeight: 16,
   },
 });

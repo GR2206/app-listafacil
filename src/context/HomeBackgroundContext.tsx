@@ -69,13 +69,13 @@ export function HomeBackgroundProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void load(true);
+    void load(false);
   }, [load]);
 
   useEffect(() => {
     const onAppStateChange = (state: AppStateStatus) => {
       if (state === 'active') {
-        void load(true);
+        void load(false);
       }
     };
 

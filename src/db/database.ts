@@ -494,6 +494,80 @@ export async function findProductByBarcode(
   };
 }
 
+export interface LocalSimilarProductCandidate {
+  barcode: string;
+  name: string;
+  brand?: string;
+  unitPrice: number;
+}
+
+/**
+ * Candidatos locales cuyo nombre contiene el token de búsqueda y tienen precio
+ * en ese super. El filtrado fino por tipo de producto lo hace el caller.
+ */
+export async function findSimilarProductCandidatesLocal(options: {
+  token: string;
+  supermarketId: string;
+  excludeBarcode?: string;
+  requiredTokens?: string[];
+  limit?: number;
+}): Promise<LocalSimilarProductCandidate[]> {
+  const token = options.token.trim().toLowerCase();
+  if (token.length < 3) return [];
+
+  const database = await getDatabase();
+  const likeToken = token.includes(' ') ? token.split(/\s+/)[0] : token;
+  const rows = await database.getAllAsync<ProductRow>(
+    `SELECT * FROM products
+     WHERE lower(name) LIKE ?
+     ORDER BY updated_at DESC
+     LIMIT ?`,
+    [`%${likeToken}%`, options.limit ?? 100]
+  );
+
+  const required = (options.requiredTokens ?? [])
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+  const results: LocalSimilarProductCandidate[] = [];
+
+  for (const row of rows) {
+    if (options.excludeBarcode && row.barcode === options.excludeBarcode) continue;
+
+    const nameLower = row.name.toLowerCase();
+    if (!nameLower.includes(likeToken)) continue;
+    if (required.length > 0 && !required.every((req) => nameLower.includes(req))) {
+      continue;
+    }
+
+    const { prices } = getSanitizedPriceMetaFromRow(row);
+    const unitPrice = readPriceForSupermarket(prices, options.supermarketId, 0);
+    if (unitPrice <= 0) continue;
+
+    results.push({
+      barcode: row.barcode,
+      name: row.name,
+      brand: row.brand ?? undefined,
+      unitPrice,
+    });
+  }
+
+  return results;
+}
+
+/** @deprecated Preferir findSimilarProductCandidatesLocal + ranking por tipo. */
+export async function findCheapestSimilarProductLocal(options: {
+  token: string;
+  supermarketId: string;
+  excludeBarcode?: string;
+  limit?: number;
+}): Promise<LocalSimilarProductCandidate | null> {
+  const rows = await findSimilarProductCandidatesLocal(options);
+  if (rows.length === 0) return null;
+  return rows.reduce((best, current) =>
+    current.unitPrice < best.unitPrice ? current : best
+  );
+}
+
 export async function upsertProduct(product: Product): Promise<void> {
   const database = await getDatabase();
   const canonicalId = product.barcode;
@@ -1109,4 +1183,14 @@ export async function getCompletedPurchase(
   );
 
   return row ? mapCompletedPurchaseRow(row) : null;
+}
+
+export async function deleteCompletedPurchase(id: string): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync(`DELETE FROM completed_purchases WHERE id = ?`, [id]);
+}
+
+export async function clearCompletedPurchases(): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync(`DELETE FROM completed_purchases`);
 }

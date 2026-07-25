@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 
-import { MOCK_SUPERMARKETS } from '@/data/mockSupermarkets';
 import { getAppSetting } from '@/db/database';
 import { getFavoriteSupermarketId } from '@/services/favoriteSupermarket';
 import {
   fetchWeeklyRankingSnapshot,
-  type WeeklyRankingSnapshot,
+  filterRankingCountsForZone,
 } from '@/services/supermarketRanking';
+import { getSupermarketsForZone } from '@/utils/supermarketCoverage';
+import { resolveZoneRegion } from '@/utils/zoneRegion';
 
 export interface LiveSavingsTicker {
   supermarketId: string;
@@ -42,6 +43,7 @@ export function useHomeGamification() {
     setLoading(true);
     try {
       const zone = await getAppSetting('selected_zone');
+      const { label: zoneLabel } = resolveZoneRegion(zone);
       const [favorite, snapshot] = await Promise.all([
         getFavoriteSupermarketId(),
         fetchWeeklyRankingSnapshot(zone),
@@ -49,33 +51,39 @@ export function useHomeGamification() {
 
       setFavoriteId(favorite);
 
-      const counts = snapshot?.counts ?? {};
+      const counts = filterRankingCountsForZone(snapshot?.counts, zone);
       setHotIds(resolveHotSupermarketIds(counts));
 
       const topEntry = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
       if (topEntry) {
         const [supermarketId, weeklyCount] = topEntry;
         const supermarketName =
-          MOCK_SUPERMARKETS.find((m) => m.id === supermarketId)?.name ?? supermarketId;
+          getSupermarketsForZone(zone).find((m) => m.id === supermarketId)?.name ??
+          supermarketId;
         const count = estimateTodaySavers(weeklyCount, supermarketId);
         tickerValue.current = count;
         setLiveTicker({
           supermarketId,
           supermarketName,
-          zoneLabel: snapshot?.zoneLabel ?? 'Rosario',
+          zoneLabel: snapshot?.zoneLabel ?? zoneLabel,
           count,
         });
       } else {
-        const fallback = MOCK_SUPERMARKETS[2];
-        const count = estimateTodaySavers(12, fallback.id);
-        tickerValue.current = count;
-        setLiveTicker({
-          supermarketId: fallback.id,
-          supermarketName: fallback.name,
-          zoneLabel: 'Rosario',
-          count,
-        });
-        setHotIds([fallback.id]);
+        const fallback = getSupermarketsForZone(zone)[0];
+        if (!fallback) {
+          setLiveTicker(null);
+          setHotIds([]);
+        } else {
+          const count = estimateTodaySavers(12, fallback.id);
+          tickerValue.current = count;
+          setLiveTicker({
+            supermarketId: fallback.id,
+            supermarketName: fallback.name,
+            zoneLabel,
+            count,
+          });
+          setHotIds([fallback.id]);
+        }
       }
     } finally {
       setLoading(false);
