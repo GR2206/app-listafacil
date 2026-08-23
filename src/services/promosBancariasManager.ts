@@ -81,6 +81,16 @@ function normalizeItem(raw: unknown): PromoBancariaItem | null {
       typeof (source as { aplicaHoy?: unknown }).aplicaHoy === 'boolean'
         ? (source as { aplicaHoy: boolean }).aplicaHoy
         : undefined,
+    diasLabel:
+      typeof (source as { diasLabel?: unknown }).diasLabel === 'string'
+        ? (source as { diasLabel: string }).diasLabel.trim() || undefined
+        : undefined,
+    matchConfidence:
+      typeof (source as { matchConfidence?: unknown }).matchConfidence === 'string'
+        ? (source as { matchConfidence: string }).matchConfidence
+        : undefined,
+    confirmedByBank: Boolean((source as { confirmedByBank?: unknown }).confirmedByBank),
+    confirmedBySuper: Boolean((source as { confirmedBySuper?: unknown }).confirmedBySuper),
   };
 }
 

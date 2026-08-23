@@ -1,12 +1,13 @@
 {
   "name": "lista-compras-scanner",
-  "version": "2.0.3",
+  "version": "2.0.10",
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "postinstall": "node scripts/patch-expo-keep-awake.js"
   },
   "dependencies": {
     "@expo-google-fonts/bebas-neue": "^0.4.1",
@@ -17,6 +18,7 @@
     "@react-native-firebase/analytics": "^25.1.0",
     "@react-native-firebase/app": "^25.1.0",
     "expo": "~54.0.36",
+    "expo-application": "~7.0.8",
     "expo-asset": "~12.0.13",
     "expo-av": "~16.0.8",
     "expo-build-properties": "~1.0.10",

@@ -1,13 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
 
 import type { CartBankPromoTip } from '@/hooks/useCartBankPromoTip';
-import { buildPromoBeneficioClipboardText } from '@/utils/promoBeneficioClipboard';
-import { useInstagramClipboardNoticeStore } from '@/store/instagramClipboardNoticeStore';
 import { getAppSetting, setAppSetting } from '@/db/database';
-import { triggerHaptic } from '@/utils/triggerHaptic';
 import { withClickSound } from '@/utils/withClickSound';
 import { radii } from '@/theme';
 import { cartCompact as c, cartListColors as lc } from '@/theme/cartCompact';
@@ -49,20 +45,6 @@ export function BankPromoTipBanner({ tip, supermarketId }: BankPromoTipBannerPro
     void setAppSetting(dismissKey(supermarketId, tip.promo.id), '1');
   });
 
-  const onCopy = withClickSound(() => {
-    void (async () => {
-      try {
-        await Clipboard.setStringAsync(buildPromoBeneficioClipboardText(tip.promo));
-        triggerHaptic('success');
-        const store = useInstagramClipboardNoticeStore.getState();
-        store.show('¡Beneficio copiado!', 'Mostralo en caja o pegalo en notas');
-        setTimeout(() => store.hide(), 1500);
-      } catch {
-        // silencioso
-      }
-    })();
-  });
-
   const onConditions = withClickSound(() => {
     if (tip.promo.url) void Linking.openURL(tip.promo.url);
   });
@@ -78,7 +60,7 @@ export function BankPromoTipBanner({ tip, supermarketId }: BankPromoTipBannerPro
         <View style={styles.topRow}>
           <View style={styles.badge}>
             <Ionicons name="sparkles" size={14} color="#0F7A5A" />
-            <Text style={styles.badgeText}>Tip Lista Fácil</Text>
+            <Text style={styles.badgeText}>Tip del día</Text>
           </View>
           <Pressable
             accessibilityRole="button"
@@ -94,27 +76,18 @@ export function BankPromoTipBanner({ tip, supermarketId }: BankPromoTipBannerPro
         <Text style={styles.message}>{tip.message}</Text>
         {tip.estimateLabel ? <Text style={styles.estimate}>{tip.estimateLabel}</Text> : null}
 
-        <View style={styles.actions}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Copiar beneficio"
-            onPress={onCopy}
-            style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
-          >
-            <Ionicons name="copy-outline" size={14} color="#FFFDF8" />
-            <Text style={styles.primaryText}>Copiar beneficio</Text>
-          </Pressable>
-          {tip.promo.url ? (
+        {tip.promo.url ? (
+          <View style={styles.actions}>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Ver condiciones"
               onPress={onConditions}
-              style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.conditionsBtn, pressed && styles.pressed]}
             >
-              <Text style={styles.secondaryText}>Ver condiciones</Text>
+              <Text style={styles.conditionsText}>Ver condiciones</Text>
             </Pressable>
-          ) : null}
-        </View>
+          </View>
+        ) : null}
       </View>
     </View>
   );
@@ -179,21 +152,7 @@ const styles = StyleSheet.create({
     gap: 8,
     marginTop: 4,
   },
-  primaryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#0F7A5A',
-    borderRadius: radii.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  primaryText: {
-    color: '#FFFDF8',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  secondaryBtn: {
+  conditionsBtn: {
     borderRadius: radii.pill,
     borderWidth: 1.5,
     borderColor: '#0F7A5A',
@@ -201,7 +160,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     backgroundColor: '#FFFFFF',
   },
-  secondaryText: {
+  conditionsText: {
     color: '#0F7A5A',
     fontSize: 12,
     fontWeight: '800',

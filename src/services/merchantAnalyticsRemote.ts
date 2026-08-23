@@ -24,6 +24,8 @@ interface DailyMetricsDoc {
   mapsClicks?: number;
   bestPriceWins?: number;
   uniquePriceVisitors?: number;
+  /** Usuarios únicos que entraron al súper (cualquier región). */
+  uniqueSuperEntries?: number;
 }
 
 function pad2(value: number): string {
@@ -41,10 +43,12 @@ function dailyDocId(supermarketId: string, dateKey: string): string {
 function emptyDailyStats(): MerchantDashboardStats {
   return {
     uniquePriceVisitors: 0,
+    uniqueSuperEntries: 0,
     mapsClicks: 0,
     bestPriceWins: 0,
     weeklyPeak: {
       uniquePriceVisitors: 0,
+      uniqueSuperEntries: 0,
       mapsClicks: 0,
       bestPriceWins: 0,
     },
@@ -55,6 +59,7 @@ function emptyDailyStats(): MerchantDashboardStats {
 function readDailyMetrics(data: DailyMetricsDoc | undefined) {
   return {
     uniquePriceVisitors: Math.max(0, Math.round(data?.uniquePriceVisitors ?? 0)),
+    uniqueSuperEntries: Math.max(0, Math.round(data?.uniqueSuperEntries ?? 0)),
     mapsClicks: Math.max(0, Math.round(data?.mapsClicks ?? 0)),
     bestPriceWins: Math.max(0, Math.round(data?.bestPriceWins ?? 0)),
   };
@@ -80,6 +85,7 @@ export async function recordRemoteMerchantEvent(input: {
   visitorId: string;
   productBarcode?: string;
   productName?: string;
+  zoneKey?: string | null;
 }): Promise<void> {
   if (!input.supermarketId) return;
 
@@ -94,6 +100,22 @@ export async function recordRemoteMerchantEvent(input: {
 
     if (input.eventType === 'best_price_win') {
       await setDoc(dayRef, { bestPriceWins: increment(1) }, { merge: true });
+      return;
+    }
+
+    if (input.eventType === 'super_entry') {
+      // Global por súper (sin filtrar región). zoneKey solo queda como metadata.
+      const entryRef = doc(dayRef, 'entradas', input.visitorId);
+      const entrySnap = await getDoc(entryRef);
+      if (!entrySnap.exists()) {
+        await setDoc(entryRef, {
+          at: serverTimestamp(),
+          zoneKey: input.zoneKey ?? null,
+        });
+        await setDoc(dayRef, { uniqueSuperEntries: increment(1) }, { merge: true });
+      } else if (input.zoneKey) {
+        await setDoc(entryRef, { lastZoneKey: input.zoneKey, lastAt: serverTimestamp() }, { merge: true });
+      }
       return;
     }
 
@@ -187,10 +209,16 @@ export async function loadRemoteMerchantDashboardStats(
     const weeklyPeak = weekMetrics.reduce(
       (peak, day) => ({
         uniquePriceVisitors: Math.max(peak.uniquePriceVisitors, day.uniquePriceVisitors),
+        uniqueSuperEntries: Math.max(peak.uniqueSuperEntries, day.uniqueSuperEntries),
         mapsClicks: Math.max(peak.mapsClicks, day.mapsClicks),
         bestPriceWins: Math.max(peak.bestPriceWins, day.bestPriceWins),
       }),
-      { uniquePriceVisitors: 0, mapsClicks: 0, bestPriceWins: 0 }
+      {
+        uniquePriceVisitors: 0,
+        uniqueSuperEntries: 0,
+        mapsClicks: 0,
+        bestPriceWins: 0,
+      }
     );
 
     return {
@@ -212,6 +240,7 @@ export function mergeRemoteAndLocalDashboardStats(
 
   const remoteHasData =
     remote.uniquePriceVisitors > 0 ||
+    remote.uniqueSuperEntries > 0 ||
     remote.mapsClicks > 0 ||
     remote.bestPriceWins > 0 ||
     remote.topProducts.length > 0;
@@ -223,6 +252,10 @@ export function mergeRemoteAndLocalDashboardStats(
         uniquePriceVisitors: Math.max(
           local.weeklyPeak.uniquePriceVisitors,
           remote.weeklyPeak.uniquePriceVisitors
+        ),
+        uniqueSuperEntries: Math.max(
+          local.weeklyPeak.uniqueSuperEntries,
+          remote.weeklyPeak.uniqueSuperEntries
         ),
         mapsClicks: Math.max(local.weeklyPeak.mapsClicks, remote.weeklyPeak.mapsClicks),
         bestPriceWins: Math.max(local.weeklyPeak.bestPriceWins, remote.weeklyPeak.bestPriceWins),

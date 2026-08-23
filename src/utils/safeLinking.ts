@@ -42,10 +42,12 @@ export async function openExternalUrlDirect(
     await Linking.openURL(url);
     return true;
   } catch {
-    Alert.alert(
-      options?.failTitle ?? 'No se pudo abrir el enlace',
-      options?.failMessage ?? 'Verificá que tengas una app compatible instalada.'
-    );
+    if (options?.failTitle || options?.failMessage) {
+      Alert.alert(
+        options?.failTitle ?? 'No se pudo abrir el enlace',
+        options?.failMessage ?? 'Verificá que tengas una app compatible instalada.'
+      );
+    }
     return false;
   }
 }

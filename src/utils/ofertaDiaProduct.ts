@@ -2,8 +2,7 @@ import type { OfertaDiaItem } from '@/types/ofertaDia';
 import type { Product } from '@/types';
 import {
   normalizeSearchText,
-  scoreProductNameMatch,
-  titlePrefixMatchesSearchQuery,
+  productMatchesSearchQuery,
 } from '@/utils/productSearchQuery';
 
 /** Convierte una oferta del carrusel a Product para la lista de búsqueda / carrito. */
@@ -35,8 +34,7 @@ export function ofertaDiaToProduct(item: OfertaDiaItem): Product {
  * Sin query → no matchea (no listar todas las ofertas).
  */
 export function ofertaMatchesQuery(item: OfertaDiaItem, query: string): boolean {
-  // Prefijo al tipeár (misma regla fluida que el catálogo).
-  return titlePrefixMatchesSearchQuery(item.titulo, query);
+  return productMatchesSearchQuery(item.titulo, null, query);
 }
 
 /** Barcodes de oferta_día para badges O(1) en listas. */
@@ -50,15 +48,15 @@ export function buildOfertaBarcodeSet(ofertas: OfertaDiaItem[]): Set<string> {
 }
 
 /**
- * Filtra ofertas por query con corte temprano (evita montar miles de filas).
+ * Filtra ofertas por query. `limit` opcional; sin él devuelve todas las coincidencias.
  */
 export function takeOfertasMatchingQuery(
   ofertas: OfertaDiaItem[],
   query: string,
-  limit: number
+  limit?: number
 ): Product[] {
   const q = query.trim();
-  if (q.length < 2 || limit <= 0) return [];
+  if (q.length < 2) return [];
 
   const out: Product[] = [];
   const seen = new Set<string>();
@@ -68,7 +66,7 @@ export function takeOfertasMatchingQuery(
     if (seen.has(product.barcode)) continue;
     seen.add(product.barcode);
     out.push(product);
-    if (out.length >= limit) break;
+    if (limit != null && limit > 0 && out.length >= limit) break;
   }
   return out;
 }

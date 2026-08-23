@@ -26,6 +26,7 @@ import { useAdminAccess } from '@/hooks/useAdminAccess';
 import {
   applyAllPendingReviewItems,
   applyPendingReviewItem,
+  clearConfirmedReviewHistory,
   describePendingUserProposal,
   dismissAllPendingReviewItems,
   dismissPendingReviewItem,
@@ -125,6 +126,38 @@ function createRevisionStyles(m: ScaledMenuMetrics) {
     },
     sectionSpacer: {
       marginTop: m.spacingLg,
+    },
+    sectionHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 8,
+      marginTop: m.spacingLg,
+      marginBottom: m.spacingSm,
+    },
+    sectionHeaderTitle: {
+      flex: 1,
+      fontSize: m.caption,
+      fontWeight: '800',
+      color: homeColors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    clearHistoryBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 7,
+      borderRadius: radii.md,
+      borderWidth: 1,
+      borderColor: '#DC2626',
+      backgroundColor: 'rgba(220, 38, 38, 0.12)',
+    },
+    clearHistoryText: {
+      fontSize: Math.max(9, m.caption - 3),
+      fontWeight: '800',
+      color: '#DC2626',
     },
     cardHeader: {
       flexDirection: 'row',
@@ -432,6 +465,7 @@ export default function RevisionProductosScreen() {
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [applyingAll, setApplyingAll] = useState(false);
   const [dismissingAll, setDismissingAll] = useState(false);
+  const [clearingHistory, setClearingHistory] = useState(false);
   const [dismissingId, setDismissingId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<PendingReviewItem | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -492,6 +526,36 @@ export default function RevisionProductosScreen() {
     },
     [applyingAll, applyingId]
   );
+
+  const handleClearHistory = useCallback(() => {
+    if (clearingHistory || confirmed.length === 0) return;
+
+    Alert.alert(
+      'Borrar historial',
+      `¿Borrar los ${confirmed.length} productos confirmados del historial? No elimina nada del catálogo.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Borrar historial',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              setClearingHistory(true);
+              setFeedback(null);
+              const { cleared, failed } = await clearConfirmedReviewHistory(confirmed);
+              setClearingHistory(false);
+              setConfirmed([]);
+              setFeedback(
+                failed > 0
+                  ? `Historial: ${cleared} borrados, ${failed} fallaron.`
+                  : `Historial borrado (${cleared}).`
+              );
+            })();
+          },
+        },
+      ]
+    );
+  }, [clearingHistory, confirmed]);
 
   const handleDismiss = useCallback(
     async (item: PendingReviewItem) => {
@@ -685,9 +749,31 @@ export default function RevisionProductosScreen() {
             ))
           )}
 
-          <Text style={[styles.sectionTitle, styles.sectionSpacer]}>
-            Productos confirmados ({confirmed.length})
-          </Text>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionHeaderTitle}>
+              Productos confirmados ({confirmed.length})
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Borrar historial de productos confirmados"
+              onPress={withClickSound(() => handleClearHistory())}
+              disabled={clearingHistory || confirmed.length === 0}
+              style={({ pressed }) => [
+                styles.clearHistoryBtn,
+                pressed && !clearingHistory && styles.pressed,
+                (clearingHistory || confirmed.length === 0) && styles.disabled,
+              ]}
+            >
+              {clearingHistory ? (
+                <ActivityIndicator size="small" color="#DC2626" />
+              ) : (
+                <Ionicons name="trash-outline" size={16} color="#DC2626" />
+              )}
+              <Text style={styles.clearHistoryText}>
+                {clearingHistory ? 'Borrando…' : 'Borrar historial'}
+              </Text>
+            </Pressable>
+          </View>
 
           {confirmed.length === 0 ? (
             <View style={menuContentStyles.emptyPanel}>

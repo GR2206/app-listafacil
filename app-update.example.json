@@ -1,8 +1,8 @@
 {
-  "androidMinVersionCode": 13,
-  "androidLatestVersionCode": 14,
+  "androidMinVersionCode": 33,
+  "androidLatestVersionCode": 34,
   "forceUpdate": false,
   "title": "Nueva versión de Lista Fácil",
-  "message": "Hay una actualización disponible. Tocá Actualizar para instalar la build que te compartimos.",
+  "message": "Hay una actualización disponible: tips de reintegro más precisos y promos bancarias mejoradas. Tocá Actualizar para instalarla.",
   "updateUrl": "https://play.google.com/store/apps/details?id=com.listafacil.app"
 }

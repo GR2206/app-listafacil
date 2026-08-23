@@ -1,34 +1,32 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import {
   Animated,
   Linking,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
-  ToastAndroid,
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import Svg, { Line } from 'react-native-svg';
-import * as Clipboard from 'expo-clipboard';
 
 import type { PromoBancariaItem } from '@/types/promosBancarias';
 import { APP_FONT_FAMILY } from '@/services/preloadAppFonts';
 import { SUPERMARKET_CATALOG } from '@/data/supermarketCatalog';
 import {
   BankLogoBadge,
-  BankLogoWatermark,
   resolveBankBrandKey,
 } from '@/components/home/BankLogoBadge';
+import { SupermarketLogoWatermark } from '@/components/home/SupermarketLogoBadge';
 import {
   formatPesosAR,
   resolveAhorroPesos,
 } from '@/utils/promoAhorroPesos';
-import { buildPromoBeneficioClipboardText } from '@/utils/promoBeneficioClipboard';
-import { useInstagramClipboardNoticeStore } from '@/store/instagramClipboardNoticeStore';
-import { triggerHaptic } from '@/utils/triggerHaptic';
+import {
+  primarySupermarketIdForPromo,
+  resolvePromoVigenciaBadge,
+} from '@/utils/promoVigencia';
 import { withClickSound } from '@/utils/withClickSound';
 import { radii, spacing } from '@/theme';
 
@@ -231,7 +229,6 @@ export function PromoReintegroSticker({
   const enter = useRef(new Animated.Value(0)).current;
   const isFull = variant === 'full';
   const tilt = ((index % 5) - 2) * 1.4;
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     Animated.spring(enter, {
@@ -245,9 +242,8 @@ export function PromoReintegroSticker({
 
   const pct = item.descuentoPct != null ? `${item.descuentoPct}` : null;
   const ahorroPesos = resolveAhorroPesos(item);
-  const vigenciaBadge = item.enProximas24h
-    ? { label: 'Próximas 24h', tone: 'soon' as const }
-    : { label: 'Vigente Hoy', tone: 'hoy' as const };
+  const vigenciaBadge = resolvePromoVigenciaBadge(item);
+  const superWatermarkId = primarySupermarketIdForPromo(item);
   const medio = item.medios[0] ?? 'Promo banco';
   const a11yAhorro =
     ahorroPesos != null
@@ -274,27 +270,6 @@ export function PromoReintegroSticker({
   const cardWidth = isFull ? undefined : 178;
   const perforationW = isFull ? 280 : 146;
   const logoSize = isFull ? 108 : 84;
-
-  const copyBeneficio = withClickSound(() => {
-    void (async () => {
-      try {
-        await Clipboard.setStringAsync(buildPromoBeneficioClipboardText(item));
-        triggerHaptic('success');
-        setCopied(true);
-        const store = useInstagramClipboardNoticeStore.getState();
-        store.show('¡Beneficio copiado!', 'Pegalo en notas o mostralo en la caja');
-        if (Platform.OS === 'android') {
-          ToastAndroid.show('Beneficio copiado al portapapeles', ToastAndroid.SHORT);
-        }
-        setTimeout(() => {
-          store.hide();
-          setCopied(false);
-        }, 1600);
-      } catch {
-        // silencioso
-      }
-    })();
-  });
 
   const verCondiciones = withClickSound(() => {
     if (item.url) {
@@ -346,12 +321,13 @@ export function PromoReintegroSticker({
             { backgroundColor: tone.paper, borderColor: tone.accent },
           ]}
         >
-          <BankLogoWatermark
-            banco={item.banco}
-            medios={item.medios}
-            size={isFull ? 168 : 132}
-            opacity={0.3}
-          />
+          {superWatermarkId ? (
+            <SupermarketLogoWatermark
+              marketId={superWatermarkId}
+              size={isFull ? 168 : 132}
+              opacity={0.22}
+            />
+          ) : null}
           {/* Badge vigencia */}
           <View
             style={[
@@ -437,8 +413,8 @@ export function PromoReintegroSticker({
             <View style={[styles.ctaRow, isFull && styles.ctaRowFull]}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Copiar beneficio al portapapeles"
-                onPress={copyBeneficio}
+                accessibilityLabel="Ver condiciones de la promo"
+                onPress={verCondiciones}
                 style={({ pressed }) => [
                   styles.ctaPrimary,
                   isFull && styles.ctaFlex,
@@ -447,22 +423,6 @@ export function PromoReintegroSticker({
                 ]}
               >
                 <Text style={styles.ctaPrimaryText} numberOfLines={1}>
-                  {copied ? '¡Copiado!' : 'Copiar beneficio'}
-                </Text>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Ver condiciones de la promo"
-                onPress={verCondiciones}
-                style={({ pressed }) => [
-                  styles.ctaSecondary,
-                  isFull && styles.ctaFlex,
-                  { borderColor: tone.accent },
-                  pressed && styles.ctaPressed,
-                ]}
-              >
-                <Text style={[styles.ctaSecondaryText, { color: tone.accent }]} numberOfLines={1}>
                   Ver condiciones
                 </Text>
               </Pressable>
@@ -647,20 +607,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.2,
-  },
-  ctaSecondary: {
-    borderRadius: radii.pill,
-    borderWidth: 1.5,
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 34,
-    backgroundColor: 'rgba(255,255,255,0.55)',
-  },
-  ctaSecondaryText: {
-    fontSize: 11,
-    fontWeight: '800',
   },
   ctaPressed: {
     opacity: 0.82,

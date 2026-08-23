@@ -23,9 +23,12 @@ import {
 import {
   buildProductSupermarketPriceRows,
   filterPromoOrDiscountRows,
+  mergeComparisonRowsIntoProduct,
   productToCartPayload,
   type ProductSupermarketPriceRow,
 } from '@/services/productPriceComparison';
+import { lookupProduct } from '@/services/productLookup';
+import { upsertProduct } from '@/db/database';
 import { logSupermarketClick } from '@/services/analytics';
 import { recordSupermarketVisit } from '@/services/favoriteSupermarket';
 import {
@@ -94,25 +97,29 @@ export default function BuscarPreciosScreen() {
   useEffect(() => {
     let cancelled = false;
     const selected = getProductSearchSelection();
+
+    if (!barcode) {
+      if (selected) setProduct(selected);
+      setLoading(false);
+      return;
+    }
+
+    // Mostrar selección al toque, pero siempre hidratar desde Firestore
+    // para tener precios de todos los súper (comparación justa).
     if (selected && selected.barcode === barcode) {
       setProduct(selected);
       setLoading(false);
-      return;
+    } else {
+      setLoading(true);
     }
 
-    if (!barcode) {
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
     void (async () => {
       const fetched = await fetchProductByDocId(barcode, pivotId);
       if (cancelled) return;
       if (fetched) {
         setProduct(fetched);
         setProductSearchSelection(fetched);
-      } else {
+      } else if (!selected || selected.barcode !== barcode) {
         setProduct(null);
       }
       setLoading(false);
@@ -281,19 +288,68 @@ export default function BuscarPreciosScreen() {
         void logSupermarketClick(row.supermarketId, row.supermarketName, 'product_search');
         void recordSupermarketVisit(row.supermarketId);
         await setSupermarket(row.supermarketId, row.supermarketName);
-        addProduct(productToCartPayload(product, row.supermarketId, row.unitPrice));
+
+        // Misma base que el escaneo: persistir precios de todos los súper en SQLite
+        // para que el carrito compare y marque el más barato.
+        let toAdd = mergeComparisonRowsIntoProduct(
+          product,
+          allRows,
+          row.supermarketId,
+          row.unitPrice
+        );
+
+        const isRealEan =
+          /^\d{8,14}$/.test(product.barcode.replace(/\D/g, '')) &&
+          !product.barcode.startsWith('oferta-');
+
+        if (isRealEan) {
+          try {
+            const looked = await lookupProduct(product.barcode, row.supermarketId);
+            if (looked) {
+              toAdd = mergeComparisonRowsIntoProduct(
+                {
+                  ...looked,
+                  catalogPrices: {
+                    prices: {
+                      ...(looked.catalogPrices?.prices ?? {}),
+                      ...(toAdd.catalogPrices?.prices ?? {}),
+                    },
+                    syncedAt: {
+                      ...(looked.catalogPrices?.syncedAt ?? {}),
+                      ...(toAdd.catalogPrices?.syncedAt ?? {}),
+                    },
+                  },
+                },
+                allRows,
+                row.supermarketId,
+                row.unitPrice
+              );
+            }
+          } catch {
+            // Seguimos con lo ya fusionado de la pantalla de comparación.
+          }
+        }
+
+        try {
+          await upsertProduct(toAdd);
+        } catch {
+          // No bloquear el alta si falla SQLite.
+        }
+
+        addProduct(productToCartPayload(toAdd, row.supermarketId, row.unitPrice));
         router.push({
           pathname: '/cart',
           params: {
             supermarketId: row.supermarketId,
             name: row.supermarketName,
+            focusBarcode: toAdd.barcode,
           },
         });
       } finally {
         setAddingId(null);
       }
     },
-    [addProduct, addingId, product, router, setSupermarket]
+    [addProduct, addingId, allRows, product, router, setSupermarket]
   );
 
   const displayName = product?.name || titleName || 'Producto';

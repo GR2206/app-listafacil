@@ -34,23 +34,11 @@ export function getHomeGridMetrics(
   };
 }
 
+/** Filas de a 3. El sobrante (1 o 2) va en la última fila para centrarlo debajo. */
 export function getHomeGridRows<T>(items: T[]): T[][] {
   const rows: T[][] = [];
   for (let i = 0; i < items.length; i += HOME_GRID_COLS) {
     rows.push(items.slice(i, i + HOME_GRID_COLS));
   }
   return rows;
-}
-
-export const HOME_GRID_PRIMARY_COUNT = 6;
-
-export function splitHomeGridMarkets<T>(
-  items: T[]
-): { primaryRows: T[][]; extraMarkets: T[] } {
-  const primaryItems = items.slice(0, HOME_GRID_PRIMARY_COUNT);
-  const extraMarkets = items.slice(HOME_GRID_PRIMARY_COUNT);
-  return {
-    primaryRows: getHomeGridRows(primaryItems),
-    extraMarkets,
-  };
 }

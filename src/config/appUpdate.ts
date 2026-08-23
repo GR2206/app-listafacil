@@ -1,4 +1,4 @@
-import { APP_DOWNLOAD_URL } from '@/config/appLinks';
+import { getStoreUpdateUrl } from '@/config/appLinks';
 
 /** JSON remoto con versionCode mínimo/recomendado y mensaje para testers. */
 export const APP_UPDATE_GIST_URL =
@@ -7,4 +7,5 @@ export const APP_UPDATE_GIST_URL =
 
 export const APP_UPDATE_FETCH_TIMEOUT_MS = 10_000;
 
-export const DEFAULT_APP_UPDATE_URL = APP_DOWNLOAD_URL;
+/** Fallback local: siempre la tienda de la plataforma (nunca Expo artifacts). */
+export const DEFAULT_APP_UPDATE_URL = getStoreUpdateUrl();

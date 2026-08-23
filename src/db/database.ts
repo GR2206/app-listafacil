@@ -879,7 +879,8 @@ export type MerchantAnalyticsEventType =
   | 'price_view'
   | 'maps_click'
   | 'best_price_win'
-  | 'product_view';
+  | 'product_view'
+  | 'super_entry';
 
 export interface TopViewedProductRecord {
   barcode: string;
@@ -889,6 +890,7 @@ export interface TopViewedProductRecord {
 
 export interface MerchantDailyStatsRecord {
   uniquePriceVisitors: number;
+  uniqueSuperEntries: number;
   mapsClicks: number;
   bestPriceWins: number;
 }
@@ -983,6 +985,15 @@ export async function getMerchantAnalyticsToday(
     [supermarketId, since]
   );
 
+  const uniqueSuperEntries = await database.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(DISTINCT visitor_id) AS count
+     FROM merchant_analytics_events
+     WHERE supermarket_id = ?
+       AND event_type = 'super_entry'
+       AND created_at >= ?`,
+    [supermarketId, since]
+  );
+
   const mapsClicks = await database.getFirstAsync<{ count: number }>(
     `SELECT COUNT(*) AS count
      FROM merchant_analytics_events
@@ -1003,6 +1014,7 @@ export async function getMerchantAnalyticsToday(
 
   return {
     uniquePriceVisitors: uniqueVisitors?.count ?? 0,
+    uniqueSuperEntries: uniqueSuperEntries?.count ?? 0,
     mapsClicks: mapsClicks?.count ?? 0,
     bestPriceWins: bestPriceWins?.count ?? 0,
   };
@@ -1028,18 +1040,27 @@ export async function getMerchantAnalyticsWeeklyPeak(
 
   const byDay = new Map<
     string,
-    { visitors: Set<string>; mapsClicks: number; bestPriceWins: number }
+    {
+      visitors: Set<string>;
+      entries: Set<string>;
+      mapsClicks: number;
+      bestPriceWins: number;
+    }
   >();
 
   for (const row of rows) {
     const bucket = byDay.get(row.day) ?? {
       visitors: new Set<string>(),
+      entries: new Set<string>(),
       mapsClicks: 0,
       bestPriceWins: 0,
     };
 
     if (row.event_type === 'price_view' && row.visitor_id) {
       bucket.visitors.add(row.visitor_id);
+    }
+    if (row.event_type === 'super_entry' && row.visitor_id) {
+      bucket.entries.add(row.visitor_id);
     }
     if (row.event_type === 'maps_click') bucket.mapsClicks += 1;
     if (row.event_type === 'best_price_win') bucket.bestPriceWins += 1;
@@ -1049,6 +1070,7 @@ export async function getMerchantAnalyticsWeeklyPeak(
 
   let peak: MerchantDailyStatsRecord = {
     uniquePriceVisitors: 0,
+    uniqueSuperEntries: 0,
     mapsClicks: 0,
     bestPriceWins: 0,
   };
@@ -1056,6 +1078,7 @@ export async function getMerchantAnalyticsWeeklyPeak(
   for (const bucket of byDay.values()) {
     peak = {
       uniquePriceVisitors: Math.max(peak.uniquePriceVisitors, bucket.visitors.size),
+      uniqueSuperEntries: Math.max(peak.uniqueSuperEntries, bucket.entries.size),
       mapsClicks: Math.max(peak.mapsClicks, bucket.mapsClicks),
       bestPriceWins: Math.max(peak.bestPriceWins, bucket.bestPriceWins),
     };

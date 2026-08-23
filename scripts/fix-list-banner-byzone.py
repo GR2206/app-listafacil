@@ -1,20 +1,47 @@
-"""Actualiza list_banner: byZone solo con publicidad real; general = sin imagen remota."""
+"""Actualiza list_banner: general sin imagen remota; byZone listo por ciudad (null = default local)."""
 
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 import subprocess
 
 GIST_ID = "385d2f581dfeea93ee3c35ddcd1314ed"
 OUT = r"E:\LISTAFACILAPP\lista-compras-scanner\tmp-banners-app.json"
 
-# Plantilla vacía: cuando vendas una ciudad, agregás solo esa clave en byZone.
-# Ejemplo:
-#   "rosario": { "imageUrl": "https://.../lista-rosario.png", "targetUrl": "https://..." }
-LIST_BY_ZONE_ADS: dict[str, dict[str, str]] = {
-    # Por ahora ninguna ciudad tiene publicidad propia de lista.
-    # El general programado (list_banner_300x50) se muestra automáticamente.
-}
+MAIL = "mailto:listafacilgr@gmail.com"
+
+# Plantilla: imageUrl null → app muestra el banner local programado.
+# Cuando vendas una ciudad, poné solo esa clave con imageUrl real, ej:
+#   "rosario": { "imageUrl": "https://.../ecosueno.png", "targetUrl": "https://..." }
+ZONE_KEYS = [
+    "rosario",
+    "santa-fe",
+    "caba",
+    "la-plata",
+    "mar-del-plata",
+    "bahia-blanca",
+    "cordoba",
+    "rio-cuarto",
+    "mendoza",
+    "san-juan",
+    "san-luis",
+    "tucuman",
+    "salta",
+    "neuquen",
+    "parana",
+    "resistencia",
+    "posadas",
+    "default",
+]
+
+# Publicidad vendida por zona (solo entradas con imagen real).
+# Vacío = todas las zonas usan el banner general local de la app.
+LIST_BY_ZONE_ADS: dict[str, dict[str, str | None]] = {}
+
+
+def empty_zone() -> dict[str, str | None]:
+    return {"imageUrl": None, "targetUrl": MAIL}
 
 
 def main() -> None:
@@ -24,15 +51,22 @@ def main() -> None:
     )
     data = json.loads(raw)
 
+    by_zone = {key: empty_zone() for key in ZONE_KEYS}
+    for key, override in LIST_BY_ZONE_ADS.items():
+        by_zone[key] = {
+            "imageUrl": override.get("imageUrl"),
+            "targetUrl": override.get("targetUrl") or MAIL,
+        }
+
     data["banners"]["list_banner"] = {
         "enabled": True,
-        # null = banner general programado en la app (ListCyberBanner)
+        # null = banner general programado en la app (ListCyberBanner / sin señal)
         "imageUrl": None,
-        "targetUrl": "mailto:listafacilgr@gmail.com",
-        "byZone": LIST_BY_ZONE_ADS,
+        "targetUrl": MAIL,
+        "byZone": by_zone,
     }
 
-    data["updatedAt"] = "2026-07-25T11:05:00.000Z"
+    data["updatedAt"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
     data["version"] = int(data.get("version") or 3) + 1
 
     with open(OUT, "w", encoding="utf-8") as f:
@@ -40,8 +74,9 @@ def main() -> None:
         f.write("\n")
 
     print("OK version", data["version"])
+    print("list base imageUrl", data["banners"]["list_banner"]["imageUrl"])
     print("list byZone ads", list(LIST_BY_ZONE_ADS))
-    print("preserved top mendoza", data["banners"]["top_banner"]["byZone"]["mendoza"]["imageUrl"][-40:])
+    print("zones", len(by_zone))
 
 
 if __name__ == "__main__":

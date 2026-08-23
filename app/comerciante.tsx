@@ -41,25 +41,17 @@ import type { ScaledMenuMetrics } from '@/theme/scaledMenuMetrics';
 
 
 const EMPTY_STATS: MerchantDashboardStats = {
-
   uniquePriceVisitors: 0,
-
+  uniqueSuperEntries: 0,
   mapsClicks: 0,
-
   bestPriceWins: 0,
-
   weeklyPeak: {
-
     uniquePriceVisitors: 0,
-
+    uniqueSuperEntries: 0,
     mapsClicks: 0,
-
     bestPriceWins: 0,
-
   },
-
   topProducts: [],
-
 };
 
 
@@ -239,21 +231,15 @@ export default function ComercianteScreen() {
 
 
   const barMax = Math.max(
-
+    stats.uniqueSuperEntries,
     stats.uniquePriceVisitors,
-
     stats.mapsClicks,
-
     stats.bestPriceWins,
-
+    stats.weeklyPeak.uniqueSuperEntries,
     stats.weeklyPeak.uniquePriceVisitors,
-
     stats.weeklyPeak.mapsClicks,
-
     stats.weeklyPeak.bestPriceWins,
-
     10
-
   );
 
 
@@ -278,7 +264,7 @@ export default function ComercianteScreen() {
 
       <View style={[menuContentStyles.panel, styles.dashboardIntro]}>
         <Text style={styles.dashboardSubtitle}>
-          Actividad de todos los usuarios · {selectedMarket?.name ?? 'Comercio'}
+          Global · todas las regiones · {selectedMarket?.name ?? 'Comercio'}
         </Text>
       </View>
 
@@ -329,39 +315,31 @@ export default function ComercianteScreen() {
 
 
       <MerchantHeroCard
-
-        label="Clics en Google Maps"
-
-        value={stats.mapsClicks}
-
-        barMax={heroBarMax}
-
-        color="#00E676"
-
-        subtitle="Usuarios que abrieron la ubicación en Maps"
-
+        label="Entradas al súper"
+        value={stats.uniqueSuperEntries}
+        barMax={Math.max(stats.uniqueSuperEntries, heroBarMax)}
+        color="#F0C419"
+        subtitle="Usuarios únicos que abrieron este súper (cualquier ciudad)"
       />
-
-
 
       <View style={menuContentStyles.sectionPanel}>
         <Text style={styles.sectionLabel}>Compará tu rendimiento</Text>
       </View>
 
-
+      <MerchantStatCard
+        title="Entradas al súper (hoy)"
+        value={stats.uniqueSuperEntries}
+        barMax={barMax}
+        color="#F0C419"
+        hint={`Pico semanal: ${stats.weeklyPeak.uniqueSuperEntries}`}
+      />
 
       <MerchantStatCard
-
         title="Usuarios únicos que vieron precios"
-
         value={stats.uniquePriceVisitors}
-
         barMax={barMax}
-
         color="#3B9BFF"
-
         hint={`Pico semanal: ${stats.weeklyPeak.uniquePriceVisitors}`}
-
       />
 
 

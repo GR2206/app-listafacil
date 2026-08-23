@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Switch,
   Platform,
+  type TextInput as TextInputType,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
@@ -49,9 +50,6 @@ const SURFACES = {
   thumb: '#D5DEE8',
 };
 
-/** Tope de filas en pantalla (evita freeze al montar miles en el ScrollView). */
-const MAX_DISPLAY_RESULTS = 20;
-
 function lowestZonePrice(product: Product, zone: string | null): number | null {
   const prices = dropCrossMarketPriceOutliers(product.catalogPrices?.prices ?? {});
   const markets = getSupermarketsForZone(zone);
@@ -69,6 +67,7 @@ export default function BuscarProductoScreen() {
   const zone = useSelectedZone();
   const [query, setQuery] = useState('');
   const [onlyOfertas, setOnlyOfertas] = useState(false);
+  const searchInputRef = useRef<TextInputType>(null);
   const [ofertas, setOfertas] = useState<OfertaDiaItem[]>(
     () => filterOfertaDiaForZone(getStartupOfertaDiaManifest() ?? { oferta_dia: [] }, zone).oferta_dia
   );
@@ -77,10 +76,20 @@ export default function BuscarProductoScreen() {
     correctedQuery,
     usedCorrection,
     loading,
+    enriching,
+    searching,
     error,
     canSearch,
   } = useProductNameSearch(query);
   const { m, MENU_SECTION_GAP } = useMenuContentStyles();
+
+  // Entrar con teclado abierto y foco en el buscador.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 120);
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,12 +109,11 @@ export default function BuscarProductoScreen() {
     const q = query.trim();
     if (q.length < 2) return [];
 
-    // OFERTAS ON: solo productos en oferta (tope duro).
+    // OFERTAS ON: solo ítems en oferta (feed + catálogo que estén en oferta).
     if (onlyOfertas) {
-      const fromOfertas = takeOfertasMatchingQuery(ofertas, q, MAX_DISPLAY_RESULTS);
+      const fromOfertas = takeOfertasMatchingQuery(ofertas, q);
       const seen = new Set(fromOfertas.map((p) => p.barcode));
       for (const product of results) {
-        if (fromOfertas.length >= MAX_DISPLAY_RESULTS) break;
         if (!ofertaBarcodes.has(product.barcode) || seen.has(product.barcode)) continue;
         seen.add(product.barcode);
         fromOfertas.push(product);
@@ -113,22 +121,14 @@ export default function BuscarProductoScreen() {
       return fromOfertas;
     }
 
-    // Default: catálogo completo (con y sin oferta) + ofertas del feed no duplicadas.
+    // Default: catálogo completo. El badge "Oferta" se marca aparte;
+    // no reemplazamos el catálogo por el feed de ofertas.
     const merged: Product[] = [];
     const seen = new Set<string>();
     for (const product of results) {
-      if (merged.length >= MAX_DISPLAY_RESULTS) break;
       if (seen.has(product.barcode)) continue;
       seen.add(product.barcode);
       merged.push(product);
-    }
-    if (merged.length < MAX_DISPLAY_RESULTS) {
-      for (const offer of takeOfertasMatchingQuery(ofertas, q, MAX_DISPLAY_RESULTS)) {
-        if (merged.length >= MAX_DISPLAY_RESULTS) break;
-        if (seen.has(offer.barcode)) continue;
-        seen.add(offer.barcode);
-        merged.push(offer);
-      }
     }
     return merged;
   }, [onlyOfertas, ofertaBarcodes, ofertas, query, results]);
@@ -192,6 +192,24 @@ export default function BuscarProductoScreen() {
           fontSize: fsCaption,
           fontWeight: '700',
           color: homeColors.neonBlueSoft,
+        },
+        searchingRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          marginBottom: 10,
+          paddingVertical: 8,
+          paddingHorizontal: 10,
+          borderRadius: 10,
+          backgroundColor: 'rgba(0, 229, 255, 0.12)',
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: 'rgba(0, 229, 255, 0.4)',
+        },
+        searchingText: {
+          flex: 1,
+          fontSize: fsCaption,
+          fontWeight: '700',
+          color: '#FFFFFF',
         },
         row: {
           flexDirection: 'row',
@@ -281,15 +299,18 @@ export default function BuscarProductoScreen() {
       <View style={styles.searchWrap}>
         <Ionicons name="search" size={icon} color="#000000" />
         <TextInput
+          ref={searchInputRef}
           value={query}
           onChangeText={setQuery}
-          placeholder="Buscar…"
+          placeholder="Buscar producto o marca…"
           placeholderTextColor="#333333"
           style={styles.input}
+          autoFocus
           autoCorrect={false}
           autoCapitalize="none"
           returnKeyType="search"
           clearButtonMode="while-editing"
+          showSoftInputOnFocus
         />
         {query.length > 0 ? (
           <Pressable
@@ -334,8 +355,17 @@ export default function BuscarProductoScreen() {
         </View>
       ) : null}
 
-      {loading && displayResults.length === 0 ? (
-        <ActivityIndicator color={homeColors.logoRing} style={{ marginTop: 16 }} />
+      {searching ? (
+        <View style={styles.searchingRow} accessibilityRole="text">
+          <ActivityIndicator size="small" color={homeColors.logoRing} />
+          <Text style={styles.searchingText}>
+            {loading && displayResults.length === 0
+              ? 'Buscando productos…'
+              : enriching
+                ? 'Buscando más en el catálogo…'
+                : 'Buscando productos…'}
+          </Text>
+        </View>
       ) : null}
 
       {error ? (

@@ -9,6 +9,8 @@ export const SUPERMARKET_NEON_COLORS: Record<string, string> = {
   carrefour: '#3B9BFF',
   jumbo: '#00E676',
   dar: '#FFBF00',
+  alvear: '#FF6A00',
+  kilbel: '#FF6A00',
   coto: '#FF1A2E',
   arcoiris: '#00A651',
   unico: '#E30613',
@@ -18,6 +20,8 @@ export const SUPERMARKET_NEON_COLORS: Record<string, string> = {
   atomo: '#E30613',
   changomas: '#7CB342',
   'la-anonima': '#004A99',
+  'cooperativa-obrera': '#003B7A',
+  top: '#E30613',
   california: '#F5A623',
   yaguar: '#00A651',
   maxiconsumo: '#E30613',
@@ -36,6 +40,8 @@ export function getSupermarketNeonColor(supermarketId: string): string {
 export const SUPERMARKET_NEON_COLOR_PALETTES: Record<string, string[]> = {
   arcoiris: ['#E30613', '#FFD100', '#00A651'],
   unico: ['#E30613', '#FFD100', '#006B3F'],
+  alvear: ['#FF6A00', '#FF9A3C'],
+  kilbel: ['#FF6A00', '#FFFFFF', '#FF9A3C'],
 };
 
 /** Disco de color detrás del logo (gallega, carrefour, jumbo) */
@@ -43,12 +49,17 @@ export const SUPERMARKET_LOGO_DISCS: Record<string, { color: string; border?: st
   'la-gallega': { color: '#7B1FA2' },
   carrefour: { color: '#1565C0' },
   jumbo: { color: '#00A651', border: 'rgba(255,255,255,0.85)' },
+  alvear: { color: '#FF6A00', border: 'rgba(255,255,255,0.9)' },
+  // Logo blanco/naranja: disco naranja oscuro + borde blanco.
+  kilbel: { color: '#C44A00', border: 'rgba(255,255,255,0.9)' },
   disco: { color: '#111111', border: 'rgba(255,255,255,0.9)' },
   dia: { color: '#111111', border: 'rgba(255,255,255,0.9)' },
   vea: { color: '#111111', border: 'rgba(255,255,255,0.9)' },
   // Logo con fondo negro: disco negro para que el recorte circular no muestre bordes.
   unico: { color: '#111111', border: 'rgba(255,255,255,0.9)' },
   'la-anonima': { color: '#FFFFFF', border: 'rgba(0,74,153,0.45)' },
+  'cooperativa-obrera': { color: '#F4F7FB', border: 'rgba(0,59,122,0.4)' },
+  top: { color: '#0A6E9C', border: 'rgba(255,255,255,0.85)' },
   // Posadas: contraste para wordmarks claros/oscuros dentro del orbe.
   california: { color: '#111111', border: 'rgba(255,255,255,0.85)' },
   yaguar: { color: '#111111', border: 'rgba(255,255,255,0.9)' },

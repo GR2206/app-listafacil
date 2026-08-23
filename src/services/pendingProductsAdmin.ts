@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   getDocs,
@@ -570,4 +571,28 @@ export async function applyAllPendingReviewItems(
   }
 
   return { applied, failed };
+}
+
+/** Borra del historial admin los productos confirmados (no toca el catálogo Productos). */
+export async function clearConfirmedReviewHistory(
+  items: PendingReviewItem[]
+): Promise<{ cleared: number; failed: number }> {
+  let cleared = 0;
+  let failed = 0;
+
+  for (const item of items) {
+    if (!item.id) {
+      failed += 1;
+      continue;
+    }
+    try {
+      await deleteDoc(pendingDocRef(item));
+      cleared += 1;
+    } catch (error) {
+      console.warn('[Firestore] No se pudo borrar confirmado:', item.id, error);
+      failed += 1;
+    }
+  }
+
+  return { cleared, failed };
 }

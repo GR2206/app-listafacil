@@ -80,18 +80,26 @@ export async function logAppEvent(eventName: string, params?: object): Promise<v
 }
 
 /** Cada súper dispara su propio evento: click_super_coto, click_super_carrefour, etc. */
-export function logSupermarketClick(
+export async function logSupermarketClick(
   supermarketId: string,
   supermercadoNombre: string,
   origen: 'grid' | 'super_taquillero' | 'oferta_dia' | 'product_search' = 'grid'
 ): Promise<void> {
   const suffix = supermarketEventSuffix(supermarketId);
 
-  return logAppEvent(`click_super_${suffix}`, {
+  await logAppEvent(`click_super_${suffix}`, {
     supermercado_id: supermarketId,
     supermercado_nombre: supermercadoNombre,
     origen,
   });
+
+  // Dashboard global (todas las regiones) — Metricas_diarias.uniqueSuperEntries
+  try {
+    const { trackSupermarketEntry } = await import('@/services/merchantAnalytics');
+    void trackSupermarketEntry(supermarketId);
+  } catch {
+    // no bloquear navegación
+  }
 }
 
 export function logBannerTopClick(): Promise<void> {

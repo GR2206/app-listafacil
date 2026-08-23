@@ -1,15 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 
 import { getSupermarketsForZone } from '@/utils/supermarketCoverage';
 import { SupermarketGridButton } from '@/components/home/SupermarketGridButton';
 import { ShimmerBlock } from '@/components/ui/ShimmerBlock';
-import { splitHomeGridMarkets } from '@/components/home/homeGridLayout';
+import { getHomeGridRows, HOME_GRID_COLS } from '@/components/home/homeGridLayout';
+import { getOrbVisualPreset } from '@/components/home/supermarketOrbVisualPresets';
 import { getAppSetting } from '@/db/database';
 import { SELECTED_ZONE_SETTING_KEY } from '@/config/zones';
 import type { Supermarket } from '@/types';
-import { spacing } from '@/theme';
 
 interface HomeSupermarketGridProps {
   loading: boolean;
@@ -24,9 +24,48 @@ interface HomeSupermarketGridProps {
 }
 
 function OrbSkeleton({ size }: { size: number }) {
+  const slot = cellWidth(size);
   return (
-    <View style={[styles.skeletonSlot, { width: size + 12, height: size + 12 }]}>
+    <View style={[styles.skeletonSlot, { width: slot, height: slot }]}>
       <ShimmerBlock style={{ width: size, height: size, borderRadius: size / 2 }} />
+    </View>
+  );
+}
+
+/** Ancho de celda = slot del botón (footprint + padding del preset). */
+function cellWidth(slotOrbSize: number) {
+  const slotPadding = getOrbVisualPreset('current').grid.slotPadding;
+  return slotOrbSize + slotPadding * 2;
+}
+
+/**
+ * Fila de hasta 3 orbes.
+ * Completa: 3 columnas fijas (márgenes = extremos de esa fila).
+ * Incompleta (1 o 2): centrada en el mismo ancho — 1 queda bajo el del medio.
+ */
+function GridRow({
+  children,
+  colGap,
+  slotOrbSize,
+  count,
+}: {
+  children: ReactNode;
+  colGap: number;
+  slotOrbSize: number;
+  count: number;
+}) {
+  const cell = cellWidth(slotOrbSize);
+  const fullRowWidth = cell * HOME_GRID_COLS + colGap * (HOME_GRID_COLS - 1);
+
+  return (
+    <View
+      style={[
+        styles.gridRow,
+        count < HOME_GRID_COLS ? styles.partialRow : null,
+        { width: fullRowWidth, columnGap: colGap },
+      ]}
+    >
+      {children}
     </View>
   );
 }
@@ -59,63 +98,56 @@ export function HomeSupermarketGrid({
   );
 
   const markets = useMemo(() => getSupermarketsForZone(zone), [zone]);
-
-  const { primaryRows, extraMarkets } = splitHomeGridMarkets(markets);
+  const rows = useMemo(() => getHomeGridRows(markets), [markets]);
 
   if (loading) {
     return (
       <View style={[styles.grid, { width: gridWidth, rowGap }]}>
-        {primaryRows.map((row, rowIndex) => (
-          <View key={`sk-row-${rowIndex}`} style={[styles.gridRow, { columnGap: colGap }]}>
+        {rows.map((row, rowIndex) => (
+          <GridRow
+            key={`sk-row-${rowIndex}`}
+            colGap={colGap}
+            slotOrbSize={slotOrbSize}
+            count={row.length}
+          >
             {row.map((market) => (
               <OrbSkeleton key={market.id} size={slotOrbSize} />
             ))}
-          </View>
+          </GridRow>
         ))}
-        {extraMarkets.length > 0 ? (
-          <View style={[styles.gridRow, styles.extraGridRow, { columnGap: colGap }]}>
-            {extraMarkets.map((market) => (
-              <OrbSkeleton key={market.id} size={slotOrbSize} />
-            ))}
-          </View>
-        ) : null}
       </View>
     );
   }
 
   let entranceIndex = 0;
 
-  const renderButton = (market: Supermarket) => {
-    const index = entranceIndex;
-    entranceIndex += 1;
-
-    return (
-      <SupermarketGridButton
-        key={market.id}
-        market={market}
-        orbSize={orbSize}
-        slotOrbSize={slotOrbSize}
-        entranceIndex={index}
-        isHot={hotIds.includes(market.id)}
-        isFavorite={favoriteId === market.id}
-        onPress={() => onSelect(market)}
-      />
-    );
-  };
-
   return (
     <View style={[styles.grid, { width: gridWidth, rowGap }]}>
-      {primaryRows.map((row, rowIndex) => (
-        <View key={`row-${rowIndex}`} style={[styles.gridRow, { columnGap: colGap }]}>
-          {row.map((market) => renderButton(market))}
-        </View>
+      {rows.map((row, rowIndex) => (
+        <GridRow
+          key={`row-${rowIndex}`}
+          colGap={colGap}
+          slotOrbSize={slotOrbSize}
+          count={row.length}
+        >
+          {row.map((market) => {
+            const index = entranceIndex;
+            entranceIndex += 1;
+            return (
+              <SupermarketGridButton
+                key={market.id}
+                market={market}
+                orbSize={orbSize}
+                slotOrbSize={slotOrbSize}
+                entranceIndex={index}
+                isHot={hotIds.includes(market.id)}
+                isFavorite={favoriteId === market.id}
+                onPress={() => onSelect(market)}
+              />
+            );
+          })}
+        </GridRow>
       ))}
-
-      {extraMarkets.length > 0 ? (
-        <View style={[styles.gridRow, styles.extraGridRow, { columnGap: colGap }]}>
-          {extraMarkets.map((market) => renderButton(market))}
-        </View>
-      ) : null}
     </View>
   );
 }
@@ -128,13 +160,12 @@ const styles = StyleSheet.create({
   },
   gridRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'center',
-    width: '100%',
     overflow: 'visible',
   },
-  extraGridRow: {
-    marginTop: spacing.xs,
+  partialRow: {
+    justifyContent: 'center',
   },
   skeletonSlot: {
     alignItems: 'center',

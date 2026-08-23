@@ -7,15 +7,18 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  ScrollView,
 } from 'react-native';
 
 import { Ionicons } from '@expo/vector-icons';
 
 import { MenuScreenLayout } from '@/components/home/MenuScreenLayout';
+import { LocationPermissionExplainer } from '@/components/home/LocationPermissionExplainer';
 
 import { getAppSetting, setAppSetting } from '@/db/database';
 
 import { APP_ZONES, SELECTED_ZONE_SETTING_KEY } from '@/config/zones';
+import { LOCATION_PERMISSION_MESSAGE } from '@/config/locationPermission';
 
 import { detectZoneFromDevice, showZoneDetectFailure } from '@/services/zoneLocation';
 import { syncPromoPushForZone } from '@/services/promoPushNotifications';
@@ -27,6 +30,7 @@ import { useMenuContentStyles } from '@/hooks/useMenuContentStyles';
 export default function ZonaScreen() {
   const [selected, setSelected] = useState<string | null>(null);
   const [detectingLocation, setDetectingLocation] = useState(false);
+  const [showLocationExplainer, setShowLocationExplainer] = useState(false);
 
   const { styles: menuContentStyles, m, MENU_SECTION_GAP } = useMenuContentStyles();
 
@@ -36,10 +40,13 @@ export default function ZonaScreen() {
         hintPanel: {
           marginBottom: MENU_SECTION_GAP,
         },
+        hintScroll: {
+          maxHeight: Math.round(14 * 1.5 * 5),
+        },
         hint: {
-          fontSize: m.caption,
+          fontSize: 14,
           color: homeColors.textMuted,
-          lineHeight: Math.round(m.caption * 1.35),
+          lineHeight: 21,
         },
         detectBtn: {
           flexDirection: 'row',
@@ -89,7 +96,7 @@ export default function ZonaScreen() {
     void syncPromoPushForZone(zone);
   };
 
-  const detectZone = async () => {
+  const runDetectZone = async () => {
     if (detectingLocation) return;
 
     setDetectingLocation(true);
@@ -110,18 +117,28 @@ export default function ZonaScreen() {
   return (
     <MenuScreenLayout title="Cambiar de Zona">
       <View style={[menuContentStyles.panel, styles.hintPanel]}>
-        <Text style={styles.hint}>
-          Elegí tu ciudad o detectala con GPS. En Rosario ves supers locales; en otras ciudades
-          aparecen las cadenas nacionales (Coto, Carrefour, Jumbo). Solo usamos la ubicación
-          cuando tocás el botón; no rastreamos en segundo plano.
-        </Text>
+        <ScrollView style={styles.hintScroll} nestedScrollEnabled showsVerticalScrollIndicator>
+          <Text style={styles.hint}>{LOCATION_PERMISSION_MESSAGE}</Text>
+        </ScrollView>
       </View>
+
+      <LocationPermissionExplainer
+        visible={showLocationExplainer}
+        onCancel={() => setShowLocationExplainer(false)}
+        onContinue={() => {
+          setShowLocationExplainer(false);
+          void runDetectZone();
+        }}
+      />
 
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Detectar mi zona con GPS"
         disabled={detectingLocation}
-        onPress={() => void detectZone()}
+        onPress={() => {
+          if (detectingLocation) return;
+          setShowLocationExplainer(true);
+        }}
         style={({ pressed }) => [
           menuContentStyles.card,
           styles.detectBtn,

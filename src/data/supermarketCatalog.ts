@@ -11,7 +11,14 @@ import type { ZoneRegionKey } from '@/config/zones';
 export type SupermarketCoverageRule =
   | { type: 'national'; excludeCities?: Array<ZoneRegionKey | string> }
   | { type: 'cities'; cities: Array<ZoneRegionKey | string> }
-  | { type: 'provinces'; provinces: AppProvince[] };
+  | {
+      type: 'provinces';
+      provinces: AppProvince[];
+      /** Ciudades extra (keys resolveZoneRegion) fuera de esas provincias. */
+      alsoCities?: Array<ZoneRegionKey | string>;
+      /** Ciudades de la provincia donde NO mostrar el súper. */
+      excludeCities?: Array<ZoneRegionKey | string>;
+    };
 
 export interface SupermarketCatalogEntry extends Supermarket {
   neonColor: string;
@@ -61,7 +68,24 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     slug: 'dar',
     initial: 'D',
     neonColor: '#FFBF00',
-    coverage: { type: 'cities', cities: ['rosario'] },
+    coverage: { type: 'cities', cities: ['rosario', 'santa-fe'] },
+  },
+  {
+    id: 'alvear',
+    name: 'Alvear',
+    slug: 'alvear',
+    initial: 'A',
+    neonColor: '#FF6A00',
+    coverage: { type: 'cities', cities: ['santa-fe'] },
+  },
+  {
+    id: 'kilbel',
+    name: 'Kilbel',
+    slug: 'kilbel',
+    initial: 'K',
+    // Destello blanco + naranja (marca del logo).
+    neonColor: '#FF6A00',
+    coverage: { type: 'cities', cities: ['santa-fe'] },
   },
   {
     id: 'arcoiris',
@@ -87,7 +111,8 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     slug: 'carrefour',
     initial: 'C',
     neonColor: '#3B9BFF',
-    coverage: { type: 'national', excludeCities: ['posadas'] },
+    // Sin Posadas ni Santa Fe capital (ahí van locales Alvear/Kilbel/…).
+    coverage: { type: 'national', excludeCities: ['posadas', 'santa-fe'] },
   },
   {
     id: 'jumbo',
@@ -95,7 +120,19 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     slug: 'jumbo',
     initial: 'J',
     neonColor: '#00E676',
-    coverage: { type: 'national', excludeCities: ['posadas'] },
+    // No existe en SF capital / San Juan / San Luis / Posadas / La Plata / Bahía / Río Cuarto.
+    coverage: {
+      type: 'national',
+      excludeCities: [
+        'posadas',
+        'santa-fe',
+        'san-juan',
+        'san-luis',
+        'la-plata',
+        'bahia-blanca',
+        'rio-cuarto',
+      ],
+    },
   },
   {
     id: 'coto',
@@ -103,7 +140,8 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     slug: 'coto',
     initial: 'C',
     neonColor: '#FF1A2E',
-    coverage: { type: 'provinces', provinces: [...BA, ...CENTRO] },
+    // Sin Córdoba (listado oficial: Vea/Jumbo/Carrefour/Chango/Anónima/Día).
+    coverage: { type: 'provinces', provinces: [...BA, 'santa-fe'] },
   },
 
   // —— Nuevos (logos 2026-07-14) ——
@@ -113,7 +151,12 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     slug: 'disco',
     initial: 'D',
     neonColor: '#E30613',
-    coverage: { type: 'provinces', provinces: BA },
+    // BA sin Bahía Blanca (ahí no hay Disco).
+    coverage: {
+      type: 'provinces',
+      provinces: BA,
+      excludeCities: ['bahia-blanca'],
+    },
   },
   {
     id: 'dia',
@@ -121,7 +164,12 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     slug: 'dia',
     initial: 'D',
     neonColor: '#E30613',
-    coverage: { type: 'provinces', provinces: BA },
+    // BA + Córdoba + Santa Fe capital (botón; góndola VTEX puede faltar en CP 3000).
+    coverage: {
+      type: 'provinces',
+      provinces: [...BA, 'cordoba'],
+      alsoCities: ['santa-fe'],
+    },
   },
   {
     id: 'vea',
@@ -129,8 +177,13 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     slug: 'vea',
     initial: 'V',
     neonColor: '#EE1D23',
-    // Interior Centro + Cuyo + NOA/NEA
-    coverage: { type: 'provinces', provinces: [...CENTRO, ...CUYO, ...NOA_NEA] },
+    // Interior Centro + Cuyo + NOA/NEA + La Plata / Bahía Blanca — sin Santa Fe capital.
+    coverage: {
+      type: 'provinces',
+      provinces: [...CENTRO, ...CUYO, ...NOA_NEA],
+      alsoCities: ['la-plata', 'bahia-blanca'],
+      excludeCities: ['santa-fe'],
+    },
   },
   {
     id: 'atomo',
@@ -138,7 +191,8 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     slug: 'atomo',
     initial: 'A',
     neonColor: '#E30613',
-    coverage: { type: 'provinces', provinces: CUYO },
+    // Cuyo + Río Cuarto
+    coverage: { type: 'provinces', provinces: CUYO, alsoCities: ['rio-cuarto'] },
   },
   {
     id: 'changomas',
@@ -146,8 +200,12 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     slug: 'changomas',
     initial: 'C',
     neonColor: '#7CB342',
-    // Cuyo + Patagonia + Misiones (Posadas)
-    coverage: { type: 'provinces', provinces: [...CUYO, ...PATAGONIA, 'misiones'] },
+    // Cuyo + Córdoba + Patagonia + Misiones + Santa Fe capital + La Plata + Bahía Blanca
+    coverage: {
+      type: 'provinces',
+      provinces: [...CUYO, 'cordoba', ...PATAGONIA, 'misiones'],
+      alsoCities: ['santa-fe', 'la-plata', 'bahia-blanca'],
+    },
   },
   {
     id: 'la-anonima',
@@ -155,7 +213,29 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     slug: 'la-anonima',
     initial: 'A',
     neonColor: '#004A99',
-    coverage: { type: 'provinces', provinces: PATAGONIA },
+    // Neuquén + San Juan + Rosario (scrap) + Córdoba capital UI. Sin Río Cuarto.
+    coverage: {
+      type: 'provinces',
+      provinces: [...PATAGONIA, 'cordoba', 'san-juan'],
+      alsoCities: ['rosario'],
+      excludeCities: ['rio-cuarto'],
+    },
+  },
+  {
+    id: 'cooperativa-obrera',
+    name: 'Cooperativa Obrera',
+    slug: 'cooperativa-obrera',
+    initial: 'C',
+    neonColor: '#003B7A',
+    coverage: { type: 'cities', cities: ['bahia-blanca'] },
+  },
+  {
+    id: 'top',
+    name: 'Top',
+    slug: 'top',
+    initial: 'T',
+    neonColor: '#E30613',
+    coverage: { type: 'cities', cities: ['rio-cuarto'] },
   },
 
   // —— Posadas (Misiones) ——
@@ -173,7 +253,7 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     slug: 'yaguar',
     initial: 'Y',
     neonColor: '#00A651',
-    coverage: { type: 'cities', cities: ['posadas'] },
+    coverage: { type: 'cities', cities: ['posadas', 'santa-fe'] },
   },
   {
     id: 'maxiconsumo',
@@ -181,7 +261,7 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     slug: 'maxiconsumo',
     initial: 'M',
     neonColor: '#E30613',
-    coverage: { type: 'cities', cities: ['posadas'] },
+    coverage: { type: 'cities', cities: ['posadas', 'la-plata'] },
   },
   {
     id: 'vital',
@@ -189,7 +269,7 @@ export const SUPERMARKET_CATALOG: SupermarketCatalogEntry[] = [
     slug: 'vital',
     initial: 'V',
     neonColor: '#0091DA',
-    coverage: { type: 'cities', cities: ['posadas'] },
+    coverage: { type: 'cities', cities: ['posadas', 'bahia-blanca'] },
   },
 
   // —— Mar del Plata (Buenos Aires costa) ——

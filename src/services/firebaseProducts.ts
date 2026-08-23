@@ -1,4 +1,13 @@
-import { collection, doc, getDoc, getDocs, limit, query, where } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  query,
+  where,
+  type QueryConstraint,
+} from 'firebase/firestore';
 
 import {
   buildEanLookupSequence,
@@ -328,19 +337,32 @@ async function queryProductsByNameField(
   nameHint: string,
   supermarketId: string,
   mode: 'exact' | 'prefix',
-  province?: AppProvince | null
+  province?: AppProvince | null,
+  maxDocs = 100
 ): Promise<Product[]> {
   const term = nameHint.trim();
   if (term.length < 2) return [];
 
-  const constraints =
-    mode === 'exact'
-      ? [where(field, '==', term), limit(8)]
-      : [where(field, '>=', term), where(field, '<=', `${term}\uf8ff`), limit(12)];
-
-  const snapshot = await getDocs(query(collection(db, COLLECTION), ...constraints));
   const products: Product[] = [];
   const activeProvince = province ?? (await getActivePriceProvince());
+  // Una sola página: suficiente y mucho más ágil que paginar todo el prefijo.
+  const take = Math.min(100, Math.max(1, maxDocs));
+
+  const constraints: QueryConstraint[] =
+    mode === 'exact'
+      ? [where(field, '==', term), limit(take)]
+      : [
+          where(field, '>=', term),
+          where(field, '<=', `${term}\uf8ff`),
+          limit(take),
+        ];
+
+  let snapshot;
+  try {
+    snapshot = await getDocs(query(collection(db, COLLECTION), ...constraints));
+  } catch {
+    return [];
+  }
 
   for (const docSnap of snapshot.docs) {
     const data = docSnap.data() as Record<string, unknown>;
@@ -372,34 +394,48 @@ function rankProductsByName(matches: Product[], term: string): Product[] {
 export async function searchProductCandidatesByName(
   nameHint: string,
   supermarketId: string,
-  maxResults = 8
+  maxResults = 80
 ): Promise<Product[]> {
   const term = nameHint.trim();
   if (term.length < 2) return [];
 
   try {
-    const fields = ['Nombre', 'nombre', 'name'];
-    const matches: Product[] = [];
     const province = await getActivePriceProvince();
+    const page = Math.min(100, Math.max(20, maxResults));
+    // Nombre + Marca: prefijo y exacto (marcas en UPPER/Title).
+    const [byNamePrefix, byBrandPrefix, byBrandExact, byNameExact] = await Promise.all([
+      queryProductsByNameField('Nombre', term, supermarketId, 'prefix', province, page).catch(
+        () => [] as Product[]
+      ),
+      queryProductsByNameField('Marca', term, supermarketId, 'prefix', province, page).catch(
+        () => [] as Product[]
+      ),
+      queryProductsByNameField('Marca', term, supermarketId, 'exact', province, page).catch(
+        () => [] as Product[]
+      ),
+      queryProductsByNameField('Nombre', term, supermarketId, 'exact', province, page).catch(
+        () => [] as Product[]
+      ),
+    ]);
 
-    for (const field of fields) {
-      for (const mode of ['exact', 'prefix'] as const) {
-        try {
-          const found = await queryProductsByNameField(
-            field,
-            term,
-            supermarketId,
-            mode,
-            province
-          );
-          matches.push(...found);
-        } catch {
-          // Índice faltante en un campo: continuar con el siguiente.
-        }
-      }
+    const seen = new Set<string>();
+    const merged: Product[] = [];
+    for (const product of [
+      ...byBrandExact,
+      ...byBrandPrefix,
+      ...byNameExact,
+      ...byNamePrefix,
+    ]) {
+      if (seen.has(product.id)) continue;
+      seen.add(product.id);
+      merged.push(product);
     }
 
-    return rankProductsByName(matches, term).slice(0, maxResults);
+    const ranked = rankProductsByName(merged, term);
+    if (ranked.length >= merged.length) return ranked.slice(0, maxResults);
+    const rankedIds = new Set(ranked.map((p) => p.id));
+    const brandOnly = merged.filter((p) => !rankedIds.has(p.id));
+    return [...ranked, ...brandOnly].slice(0, maxResults);
   } catch (error) {
     console.warn('[Firestore] Error al buscar por nombre:', error);
     return [];

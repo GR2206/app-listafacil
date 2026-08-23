@@ -10,7 +10,7 @@ import {
 } from '@/services/homeBackgroundManager';
 import {
   fetchOfertaDiaManifest,
-  pickTopOfertasForCarousel,
+  pickRotatingOfertasForCarousel,
   prefetchOfertaDiaImages,
 } from '@/services/ofertaDiaManager';
 import { fetchPromosBancariasManifest } from '@/services/promosBancariasManager';
@@ -78,8 +78,8 @@ function warmSecondaryResources(hydrateMerchantAuth: () => Promise<void>): void 
     void (async () => {
       try {
         const { manifest } = await fetchOfertaDiaManifest();
-        // Solo top del carrusel (no las ~3000 imágenes).
-        const top = pickTopOfertasForCarousel(manifest.oferta_dia, 10);
+        // Solo el set rotativo actual del carrusel (no las ~3500 imágenes).
+        const top = pickRotatingOfertasForCarousel(manifest.oferta_dia);
         await prefetchOfertaDiaImages({ ...manifest, oferta_dia: top });
       } catch {
         // ignore

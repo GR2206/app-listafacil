@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AppState,
   NativeScrollEvent,
@@ -14,11 +14,14 @@ import {
 import { Image } from 'expo-image';
 import { useRouter, useFocusEffect } from 'expo-router';
 
+import { OFERTA_DIA_ROTATE_MS } from '@/config/ofertaDia';
 import {
   fetchOfertaDiaManifest,
   filterOfertaDiaForZone,
+  getOfertaRotationBucket,
   getStartupOfertaDiaManifest,
-  pickTopOfertasForCarousel,
+  isOfertaDiaCacheStale,
+  pickRotatingOfertasForCarousel,
   prefetchOfertaDiaImages,
 } from '@/services/ofertaDiaManager';
 import { useCartStore } from '@/store/cartStore';
@@ -43,6 +46,8 @@ const CAROUSEL_HEIGHT_MAX = 236;
 const SIDE_INSET = spacing.sm;
 const CTA_RED = colors.danger;
 const LOGO_BADGE_SIZE = 44;
+/** Revisa rotación / cache stale con frecuencia (el set cambia cada 15 min). */
+const ROTATION_WATCH_MS = 30_000;
 
 function formatPriceLabel(precio: string): string {
   const digits = precio.replace(/[^\d]/g, '');
@@ -77,6 +82,10 @@ function toCartProduct(item: OfertaDiaItem, supermarketId: string): Product | nu
   };
 }
 
+function slidesSignature(list: OfertaDiaItem[]): string {
+  return list.map((item) => `${item.id}:${item.barcode || item.titulo}`).join('|');
+}
+
 export function HomeCatalogCarousel() {
   const router = useRouter();
   const setSupermarket = useCartStore((s) => s.setSupermarket);
@@ -84,21 +93,33 @@ export function HomeCatalogCarousel() {
   const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const startup = getStartupOfertaDiaManifest();
   const [items, setItems] = useState<OfertaDiaItem[]>(() =>
-    pickTopOfertasForCarousel(startup?.oferta_dia ?? [])
+    pickRotatingOfertasForCarousel(startup?.oferta_dia ?? [])
   );
   const [activeIndex, setActiveIndex] = useState(0);
   const [addingId, setAddingId] = useState<number | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const rotationBucketRef = useRef(getOfertaRotationBucket());
+  const itemsSigRef = useRef(slidesSignature(items));
 
   const load = useCallback(async (forceRefresh = false) => {
+    const shouldForce = forceRefresh || isOfertaDiaCacheStale();
     const [{ manifest }, zoneSetting] = await Promise.all([
-      fetchOfertaDiaManifest({ forceRefresh }),
+      fetchOfertaDiaManifest({ forceRefresh: shouldForce }),
       getAppSetting(SELECTED_ZONE_SETTING_KEY),
     ]);
     const filtered = filterOfertaDiaForZone(manifest, zoneSetting);
-    const top = pickTopOfertasForCarousel(filtered.oferta_dia);
-    setItems(top);
-    // Solo precargar las 10 del carrusel (no las 500 del feed).
-    await prefetchOfertaDiaImages({ oferta_dia: top });
+    const next = pickRotatingOfertasForCarousel(filtered.oferta_dia);
+    const sig = slidesSignature(next);
+    rotationBucketRef.current = getOfertaRotationBucket();
+
+    if (sig !== itemsSigRef.current) {
+      itemsSigRef.current = sig;
+      setItems(next);
+      setActiveIndex(0);
+      scrollRef.current?.scrollTo({ x: 0, animated: false });
+    }
+
+    await prefetchOfertaDiaImages({ oferta_dia: next });
   }, []);
 
   useFocusEffect(
@@ -113,6 +134,24 @@ export function HomeCatalogCarousel() {
     };
     const sub = AppState.addEventListener('change', onAppStateChange);
     return () => sub.remove();
+  }, [load]);
+
+  // Cada 30s: si cambió la ventana de 15 min (o el día), rearmar el carrusel.
+  useEffect(() => {
+    const tick = () => {
+      const bucket = getOfertaRotationBucket();
+      if (bucket !== rotationBucketRef.current || isOfertaDiaCacheStale()) {
+        void load(false);
+      }
+    };
+    const id = setInterval(tick, ROTATION_WATCH_MS);
+    const msIntoWindow = Date.now() % OFERTA_DIA_ROTATE_MS;
+    const untilNext = Math.max(5_000, OFERTA_DIA_ROTATE_MS - msIntoWindow + 250);
+    const once = setTimeout(tick, untilNext);
+    return () => {
+      clearInterval(id);
+      clearTimeout(once);
+    };
   }, [load]);
 
   const carouselHeight = Math.round(
@@ -253,9 +292,10 @@ export function HomeCatalogCarousel() {
     <View
       style={[styles.shell, { width: screenWidth, height: carouselHeight + 18 }]}
       accessibilityRole="adjustable"
-      accessibilityLabel="Catálogo del día. Deslizá horizontalmente para explorar."
+      accessibilityLabel="Catálogo del día. Deslizá horizontalmente para explorar. Se actualiza cada 15 minutos."
     >
       <ScrollView
+        ref={scrollRef}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -277,7 +317,7 @@ export function HomeCatalogCarousel() {
       </ScrollView>
 
       <View style={styles.footerRow} pointerEvents="none">
-        <Text style={styles.hint}>Deslizá para explorar</Text>
+        <Text style={styles.hint}>Deslizá · se renueva cada 15 min</Text>
         <View style={styles.dots}>
           {items.map((item, index) => (
             <View

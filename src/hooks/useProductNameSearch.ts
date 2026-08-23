@@ -12,9 +12,8 @@ import { normalizeSearchText } from '@/utils/productSearchQuery';
 import { getSupermarketsForZone } from '@/utils/supermarketCoverage';
 import { useSelectedZone } from '@/hooks/useSelectedZone';
 
-const DEBOUNCE_MS = 70;
+const DEBOUNCE_MS = 280;
 const MIN_CHARS = 2;
-const MAX_RESULTS = 16;
 
 function pickPivotSupermarketId(zoneSetting: string | null): string {
   const zoneMarkets = getSupermarketsForZone(zoneSetting);
@@ -35,13 +34,13 @@ export function useProductNameSearch(query: string) {
   const [correctedQuery, setCorrectedQuery] = useState<string | null>(null);
   const [usedCorrection, setUsedCorrection] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [enriching, setEnriching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
   const prevNormalizedRef = useRef('');
 
   const trimmed = query.trim();
 
-  // Abrir SQLite apenas entra a Buscar (evita demora en el 1er keystroke).
   useEffect(() => {
     void getDatabase();
   }, []);
@@ -55,27 +54,26 @@ export function useProductNameSearch(query: string) {
       setCorrectedQuery(null);
       setUsedCorrection(false);
       setLoading(false);
+      setEnriching(false);
       setError(null);
       prevNormalizedRef.current = '';
       return;
     }
 
     setError(null);
+    setLoading(true);
+    setEnriching(false);
 
-    // Instantáneo: caché / prefijo tipado (sin esperar debounce ni red).
-    const instant = peekInstantCatalogResults(trimmed, pivotId, MAX_RESULTS);
+    const instant = peekInstantCatalogResults(trimmed, pivotId);
     if (instant && instant.length > 0) {
       setResults(instant);
       prefetchProductThumbs(instant);
-      setLoading(false);
     } else {
       const prev = prevNormalizedRef.current;
       const refining =
         Boolean(prev) &&
         (normalized.startsWith(prev) || prev.startsWith(normalized));
-      // Si cambió de producto (leche → coca), limpiar; si sigue tipando, mantener lista.
       if (!refining) setResults([]);
-      setLoading(true);
     }
     prevNormalizedRef.current = normalized;
 
@@ -85,15 +83,18 @@ export function useProductNameSearch(query: string) {
           const found = await searchCatalogProducts({
             query: trimmed,
             supermarketId: pivotId,
-            maxResults: MAX_RESULTS,
-            onPartial: (partial) => {
+            onPartial: (partial, phase) => {
               if (requestId !== requestIdRef.current) return;
-              setResults(partial.slice(0, MAX_RESULTS));
-              setLoading(false);
+              setResults(partial);
+              if (phase === 'local') {
+                setEnriching(true);
+                // Ya hay algo en pantalla: dejar de mostrar spinner vacío.
+                setLoading(false);
+              }
             },
           });
           if (requestId !== requestIdRef.current) return;
-          setResults(found.products.slice(0, MAX_RESULTS));
+          setResults(found.products);
           setCorrectedQuery(found.correctedQuery);
           setUsedCorrection(found.usedCorrection);
         } catch {
@@ -103,7 +104,10 @@ export function useProductNameSearch(query: string) {
           setUsedCorrection(false);
           setError('No pudimos buscar ahora.');
         } finally {
-          if (requestId === requestIdRef.current) setLoading(false);
+          if (requestId === requestIdRef.current) {
+            setLoading(false);
+            setEnriching(false);
+          }
         }
       })();
     }, DEBOUNCE_MS);
@@ -118,10 +122,12 @@ export function useProductNameSearch(query: string) {
     correctedQuery,
     usedCorrection,
     loading,
+    /** Todavía enriqueciando catálogo remoto con resultados parciales visibles. */
+    enriching,
+    searching: loading || enriching,
     error,
     zone,
     minChars: MIN_CHARS,
     canSearch: trimmed.length >= MIN_CHARS,
-    maxResults: MAX_RESULTS,
   };
 }

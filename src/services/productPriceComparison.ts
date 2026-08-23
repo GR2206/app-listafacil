@@ -122,3 +122,35 @@ export function productToCartPayload(
     price: unitPrice,
   };
 }
+
+/** Une las filas de comparación (zona) en catalogPrices para persistirlas en SQLite. */
+export function mergeComparisonRowsIntoProduct(
+  product: Product,
+  rows: ProductSupermarketPriceRow[],
+  selectedSupermarketId: string,
+  selectedUnitPrice: number
+): Product {
+  const prices: Record<string, number> = { ...(product.catalogPrices?.prices ?? {}) };
+  const syncedAt: Record<string, string> = { ...(product.catalogPrices?.syncedAt ?? {}) };
+  const now = new Date().toISOString();
+
+  for (const row of rows) {
+    if (row.unitPrice <= 0) continue;
+    prices[row.supermarketId] = row.unitPrice;
+    if (row.syncedAt) syncedAt[row.supermarketId] = row.syncedAt;
+    else if (!syncedAt[row.supermarketId]) syncedAt[row.supermarketId] = now;
+  }
+
+  if (selectedUnitPrice > 0) {
+    prices[selectedSupermarketId] = selectedUnitPrice;
+    syncedAt[selectedSupermarketId] = syncedAt[selectedSupermarketId] ?? now;
+  }
+
+  return {
+    ...product,
+    id: product.barcode,
+    supermarketId: selectedSupermarketId,
+    price: selectedUnitPrice > 0 ? selectedUnitPrice : product.price,
+    catalogPrices: { prices, syncedAt },
+  };
+}

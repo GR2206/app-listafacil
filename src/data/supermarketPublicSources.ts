@@ -80,6 +80,18 @@ export const SUPERMARKET_PUBLIC_SOURCES: SupermarketPublicSource[] = [
     websiteLabel: 'atomoconviene.com',
   },
   {
+    id: 'alvear',
+    name: 'Alvear',
+    websiteUrl: 'https://www.supermercadoalvear.com.ar/',
+    websiteLabel: 'supermercadoalvear.com.ar',
+  },
+  {
+    id: 'kilbel',
+    name: 'Kilbel',
+    websiteUrl: 'https://www.kilbel.com.ar/',
+    websiteLabel: 'kilbel.com.ar',
+  },
+  {
     id: 'changomas',
     name: 'Chango Más',
     websiteUrl: 'https://www.changomas.com.ar/',
@@ -90,6 +102,18 @@ export const SUPERMARKET_PUBLIC_SOURCES: SupermarketPublicSource[] = [
     name: 'La Anónima',
     websiteUrl: 'https://www.laanonima.com.ar/',
     websiteLabel: 'laanonima.com.ar',
+  },
+  {
+    id: 'cooperativa-obrera',
+    name: 'Cooperativa Obrera',
+    websiteUrl: 'https://www.cooperativaobrera.coop/',
+    websiteLabel: 'cooperativaobrera.coop',
+  },
+  {
+    id: 'top',
+    name: 'Top',
+    websiteUrl: 'https://www.supertop.com.ar/',
+    websiteLabel: 'supertop.com.ar',
   },
   {
     id: 'california',

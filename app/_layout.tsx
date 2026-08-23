@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { Animated, StatusBar, StyleSheet, View } from 'react-native';
+import { Animated, LogBox, StatusBar, StyleSheet, View } from 'react-native';
 
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import * as SplashScreen from 'expo-splash-screen';
+
+// Expo Go / Android: keep-awake puede fallar al activarse (Activity no lista).
+// Es inocuo; evitamos el overlay rojo de "Uncaught (in promise)".
+if (__DEV__) {
+  LogBox.ignoreLogs(['Unable to activate keep awake', 'Unable to deactivate keep awake']);
+}
 
 import { BannerManagerProvider } from '@/context/BannerManagerContext';
 import { HomeBackgroundProvider } from '@/context/HomeBackgroundContext';
@@ -146,12 +152,13 @@ export default function RootLayout() {
   }, [recursosListos, fadeAnim]);
 
   useEffect(() => {
-    if (!recursosListos || !mostrarApp) return;
+    // Arranca apenas hay recursos (no esperar el fade de bienvenida).
+    if (!recursosListos) return;
 
     return subscribeToAppUpdateChecks((prompt) => {
       setUpdatePrompt(prompt);
     });
-  }, [recursosListos, mostrarApp]);
+  }, [recursosListos]);
 
   return (
 

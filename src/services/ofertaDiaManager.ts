@@ -1,7 +1,15 @@
 import { Image } from 'expo-image';
 
 import defaultManifest from '@/data/oferta-dia.default.json';
-import { OFERTA_DIA_FETCH_TIMEOUT_MS, OFERTA_DIA_GIST_URL } from '@/config/ofertaDia';
+import {
+  OFERTA_DIA_CACHE_TTL_MS,
+  OFERTA_DIA_CAROUSEL_LIMIT,
+  OFERTA_DIA_FETCH_TIMEOUT_MS,
+  OFERTA_DIA_GIST_URL,
+  OFERTA_DIA_HOT_POOL_SIZE,
+  OFERTA_DIA_MAX_PER_SUPER,
+  OFERTA_DIA_ROTATE_MS,
+} from '@/config/ofertaDia';
 import type { OfertaDiaItem, OfertaDiaManifest } from '@/types/ofertaDia';
 import { fetchRemoteJson } from '@/utils/fetchRemoteJson';
 import { isSupermarketAvailableInZone } from '@/utils/supermarketCoverage';
@@ -9,6 +17,7 @@ import { isValidHttpUrl } from '@/utils/validateBannerUrl';
 
 let cachedManifest: OfertaDiaManifest | null = null;
 let usedRemoteManifest = false;
+let cachedAtMs = 0;
 const prefetchedUrls = new Set<string>();
 
 const DEFAULT_CTA = 'Sumar a mi lista';
@@ -121,34 +130,140 @@ export function filterOfertaDiaForZone(
   return { oferta_dia };
 }
 
-/** Slides del carrusel home: pocas, las de mayor % de ahorro. */
-export const OFERTA_DIA_CAROUSEL_LIMIT = 10;
+export { OFERTA_DIA_CAROUSEL_LIMIT };
 
+function compareOfertasHot(a: OfertaDiaItem, b: OfertaDiaItem): number {
+  const ahorroA = a.ahorroPct ?? -1;
+  const ahorroB = b.ahorroPct ?? -1;
+  if (ahorroB !== ahorroA) return ahorroB - ahorroA;
+
+  const imgA = a.imagen?.trim() ? 1 : 0;
+  const imgB = b.imagen?.trim() ? 1 : 0;
+  if (imgB !== imgA) return imgB - imgA;
+
+  const priceA = Number(String(a.precio).replace(/[^\d.]/g, '')) || Number.POSITIVE_INFINITY;
+  const priceB = Number(String(b.precio).replace(/[^\d.]/g, '')) || Number.POSITIVE_INFINITY;
+  return priceA - priceB;
+}
+
+/** Ranking fijo: mayor % ahorro (taquilleras), con imagen, precio más bajo. */
+export function rankOfertasByHotness(items: OfertaDiaItem[]): OfertaDiaItem[] {
+  return [...items].sort(compareOfertasHot);
+}
+
+/** Top fijo (sin rotación) — útil para prefetch de arranque. */
 export function pickTopOfertasForCarousel(
   items: OfertaDiaItem[],
   limit = OFERTA_DIA_CAROUSEL_LIMIT
 ): OfertaDiaItem[] {
-  return [...items]
-    .sort((a, b) => {
-      const ahorroA = a.ahorroPct ?? -1;
-      const ahorroB = b.ahorroPct ?? -1;
-      if (ahorroB !== ahorroA) return ahorroB - ahorroA;
+  return rankOfertasByHotness(items).slice(0, limit);
+}
 
-      const imgA = a.imagen?.trim() ? 1 : 0;
-      const imgB = b.imagen?.trim() ? 1 : 0;
-      if (imgB !== imgA) return imgB - imgA;
+export function getOfertaRotationBucket(nowMs = Date.now()): number {
+  return Math.floor(nowMs / OFERTA_DIA_ROTATE_MS);
+}
 
-      const priceA = Number(String(a.precio).replace(/[^\d.]/g, '')) || Number.POSITIVE_INFINITY;
-      const priceB = Number(String(b.precio).replace(/[^\d.]/g, '')) || Number.POSITIVE_INFINITY;
-      return priceA - priceB;
-    })
-    .slice(0, limit);
+function hashSeed(input: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/** Shuffle determinista por semilla (mismo set para todos en la misma ventana). */
+function seededShuffle<T>(list: T[], seed: number): T[] {
+  const out = [...list];
+  let s = seed || 1;
+  for (let i = out.length - 1; i > 0; i -= 1) {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    const j = s % (i + 1);
+    const tmp = out[i];
+    out[i] = out[j];
+    out[j] = tmp;
+  }
+  return out;
+}
+
+/**
+ * Diversifica por súper: no más de N del mismo en el carrusel.
+ * Si no alcanza el límite, completa con el resto.
+ */
+function diversifyBySupermarket(
+  items: OfertaDiaItem[],
+  limit: number,
+  maxPerSuper: number
+): OfertaDiaItem[] {
+  const picked: OfertaDiaItem[] = [];
+  const counts = new Map<string, number>();
+  const leftover: OfertaDiaItem[] = [];
+
+  for (const item of items) {
+    if (picked.length >= limit) break;
+    const key = item.supermarketId?.trim() || `_anon_${item.id}`;
+    const n = counts.get(key) ?? 0;
+    if (n >= maxPerSuper) {
+      leftover.push(item);
+      continue;
+    }
+    counts.set(key, n + 1);
+    picked.push(item);
+  }
+
+  for (const item of leftover) {
+    if (picked.length >= limit) break;
+    picked.push(item);
+  }
+
+  return picked;
+}
+
+/**
+ * Carrusel rotativo: pool de las más taquilleras + ventana cada 15 min.
+ * Cambia el set a lo largo del día sin perder las mejores ofertas.
+ */
+export function pickRotatingOfertasForCarousel(
+  items: OfertaDiaItem[],
+  options?: {
+    limit?: number;
+    poolSize?: number;
+    nowMs?: number;
+    maxPerSuper?: number;
+  }
+): OfertaDiaItem[] {
+  const limit = options?.limit ?? OFERTA_DIA_CAROUSEL_LIMIT;
+  const poolSize = options?.poolSize ?? OFERTA_DIA_HOT_POOL_SIZE;
+  const nowMs = options?.nowMs ?? Date.now();
+  const maxPerSuper = options?.maxPerSuper ?? OFERTA_DIA_MAX_PER_SUPER;
+
+  if (items.length === 0) return [];
+
+  const ranked = rankOfertasByHotness(items);
+  const pool = ranked.slice(0, Math.max(limit, Math.min(poolSize, ranked.length)));
+  const bucket = getOfertaRotationBucket(nowMs);
+  const dayKey = new Date(nowMs).toISOString().slice(0, 10);
+  const seed = hashSeed(`${dayKey}:${bucket}:${pool.length}`);
+  const shuffled = seededShuffle(pool, seed);
+  return diversifyBySupermarket(shuffled, limit, maxPerSuper);
+}
+
+function calendarDayKey(ms: number): string {
+  return new Date(ms).toDateString();
+}
+
+export function isOfertaDiaCacheStale(nowMs = Date.now()): boolean {
+  if (!cachedManifest || !usedRemoteManifest || cachedAtMs <= 0) return true;
+  if (nowMs - cachedAtMs >= OFERTA_DIA_CACHE_TTL_MS) return true;
+  if (calendarDayKey(cachedAtMs) !== calendarDayKey(nowMs)) return true;
+  return false;
 }
 
 export async function fetchOfertaDiaManifest(options?: {
   forceRefresh?: boolean;
 }): Promise<{ manifest: OfertaDiaManifest; fromRemote: boolean }> {
-  if (!options?.forceRefresh && cachedManifest && usedRemoteManifest) {
+  const force = options?.forceRefresh === true;
+  if (!force && cachedManifest && usedRemoteManifest && !isOfertaDiaCacheStale()) {
     return { manifest: cachedManifest, fromRemote: true };
   }
 
@@ -161,9 +276,10 @@ export async function fetchOfertaDiaManifest(options?: {
     const manifest = normalizeManifest(json);
     cachedManifest = manifest;
     usedRemoteManifest = true;
+    cachedAtMs = Date.now();
     return { manifest, fromRemote: true };
   } catch {
-    if (cachedManifest && usedRemoteManifest && !options?.forceRefresh) {
+    if (cachedManifest && usedRemoteManifest && !force) {
       return { manifest: cachedManifest, fromRemote: true };
     }
     return {
@@ -196,5 +312,6 @@ export async function prefetchOfertaDiaImages(manifest: OfertaDiaManifest): Prom
 export function clearOfertaDiaCacheForTests(): void {
   cachedManifest = null;
   usedRemoteManifest = false;
+  cachedAtMs = 0;
   prefetchedUrls.clear();
 }

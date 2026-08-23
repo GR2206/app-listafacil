@@ -176,22 +176,9 @@ export function BankLogoWatermark({
   const logo = bankLogoImage(key);
   if (!logo) return null;
   return (
-    <Image
-      source={logo}
-      pointerEvents="none"
-      style={{
-        position: 'absolute',
-        top: '50%',
-        left: '50%',
-        width: size,
-        height: size,
-        marginTop: -size / 2,
-        marginLeft: -size / 2,
-        opacity,
-        zIndex: 0,
-      }}
-      resizeMode="contain"
-    />
+    <View pointerEvents="none" style={[styles.watermarkLayer, { opacity }]}>
+      <Image source={logo} style={{ width: size, height: size }} resizeMode="contain" />
+    </View>
   );
 }
 
@@ -210,5 +197,11 @@ const styles = StyleSheet.create({
     marginTop: 6,
     letterSpacing: 1.4,
     textAlign: 'center',
+  },
+  watermarkLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 0,
   },
 });

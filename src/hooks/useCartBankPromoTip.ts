@@ -58,7 +58,9 @@ export function useCartBankPromoTip(options: {
       promo,
       message: buildCartPromoTipMessage(promo, supermarketName),
       estimateLabel:
-        estimate != null ? `Sobre tu lista, hasta ${formatPesosAR(estimate)}` : null,
+        estimate != null
+          ? `Estimado sobre tu lista: hasta ${formatPesosAR(estimate)}`
+          : null,
     };
   }, [promosReady, supermarketId, supermarketName, listTotal, zone]);
 }

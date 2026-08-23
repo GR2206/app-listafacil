@@ -4,6 +4,8 @@ export const SUPERMARKET_PRICE_ALIASES: Record<string, string[]> = {
   carrefour: ['carrefour', 'Carrefour', 'CARREFOUR'],
   jumbo: ['jumbo', 'Jumbo', 'JUMBO'],
   dar: ['dar', 'DAR', 'Dar'],
+  alvear: ['alvear', 'Alvear', 'ALVEAR'],
+  kilbel: ['kilbel', 'Kilbel', 'KILBEL'],
   coto: ['coto', 'Coto', 'COTO', 'coto-digital', 'coto_digital', 'Coto Digital'],
   arcoiris: ['arcoiris', 'Arcoiris', 'ARCOIRIS'],
   unico: ['unico', 'Unico', 'UNICO', 'único', 'Único', 'ÚNICO', 'unico-rosario', 'unico_rosario'],
@@ -13,6 +15,14 @@ export const SUPERMARKET_PRICE_ALIASES: Record<string, string[]> = {
   atomo: ['atomo', 'Atomo', 'ATOMO', 'átomo', 'Átomo'],
   changomas: ['changomas', 'chango-mas', 'chango_mas', 'ChangoMas', 'CHANGOMAS'],
   'la-anonima': ['la-anonima', 'la_anonima', 'La_Anonima', 'LA_ANONIMA'],
+  'cooperativa-obrera': [
+    'cooperativa-obrera',
+    'cooperativa_obrera',
+    'Cooperativa_Obrera',
+    'COOPERATIVA_OBRERA',
+    'cooperativaobrera',
+  ],
+  top: ['top', 'Top', 'TOP', 'top-online', 'top_online', 'TopOnline'],
   // Posadas — IDs alineados a scrapers (otra PC)
   california: ['california', 'California', 'CALIFORNIA'],
   yaguar: ['yaguar', 'Yaguar', 'YAGUAR', 'jaguar'],

@@ -1,29 +1,28 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
   Linking,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
-  ToastAndroid,
   View,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 
 import type { PromoBancariaItem } from '@/types/promosBancarias';
 import { APP_FONT_FAMILY } from '@/services/preloadAppFonts';
+import { SUPERMARKET_CATALOG } from '@/data/supermarketCatalog';
 import {
   BankLogoBadge,
-  BankLogoWatermark,
   resolveBankBrandKey,
 } from '@/components/home/BankLogoBadge';
+import { SupermarketLogoWatermark } from '@/components/home/SupermarketLogoBadge';
 import { formatPesosAR, resolveAhorroPesos } from '@/utils/promoAhorroPesos';
-import { buildPromoBeneficioClipboardText } from '@/utils/promoBeneficioClipboard';
-import { useInstagramClipboardNoticeStore } from '@/store/instagramClipboardNoticeStore';
-import { triggerHaptic } from '@/utils/triggerHaptic';
+import {
+  primarySupermarketIdForPromo,
+  resolvePromoVigenciaBadge,
+} from '@/utils/promoVigencia';
 import { withClickSound } from '@/utils/withClickSound';
 import { radii } from '@/theme';
 
@@ -163,6 +162,14 @@ function toneForBank(banco: string, medios: string[] = []): StickerTone {
   return TONES.default;
 }
 
+function superLabel(ids: string[]): string {
+  if (ids.length === 0) return 'Súpers adheridos';
+  return ids
+    .map((id) => SUPERMARKET_CATALOG.find((s) => s.id === id)?.name ?? id)
+    .slice(0, 2)
+    .join(' · ');
+}
+
 type CompactPromoStickerProps = {
   item: PromoBancariaItem;
   index: number;
@@ -184,7 +191,6 @@ export function CompactPromoSticker({
   const tone = useMemo(() => toneForBank(item.banco, item.medios), [item.banco, item.medios]);
   const scale = useRef(new Animated.Value(1)).current;
   const enter = useRef(new Animated.Value(0)).current;
-  const [copied, setCopied] = useState(false);
 
   const tilt = useMemo(() => {
     const pattern = [-6.5, 5, -3.5, 7, -5.5, 4];
@@ -209,29 +215,10 @@ export function CompactPromoSticker({
 
   const pct = item.descuentoPct;
   const ahorroPesos = resolveAhorroPesos(item);
+  const vigenciaBadge = resolvePromoVigenciaBadge(item);
+  const superWatermarkId = primarySupermarketIdForPromo(item);
   const paperW = width - 8;
   const paperH = height - 8;
-
-  const copyBeneficio = withClickSound(() => {
-    void (async () => {
-      try {
-        await Clipboard.setStringAsync(buildPromoBeneficioClipboardText(item));
-        triggerHaptic('success');
-        setCopied(true);
-        const store = useInstagramClipboardNoticeStore.getState();
-        store.show('¡Beneficio copiado!', 'Pegalo en notas o mostralo en la caja');
-        if (Platform.OS === 'android') {
-          ToastAndroid.show('Beneficio copiado', ToastAndroid.SHORT);
-        }
-        setTimeout(() => {
-          store.hide();
-          setCopied(false);
-        }, 1400);
-      } catch {
-        // silencioso
-      }
-    })();
-  });
 
   const verCondiciones = withClickSound(() => {
     if (item.url) void Linking.openURL(item.url);
@@ -272,21 +259,23 @@ export function CompactPromoSticker({
             },
           ]}
         >
-          <BankLogoWatermark
-            banco={item.banco}
-            medios={item.medios}
-            size={Math.round(108 * s)}
-            opacity={0.3}
-          />
-          <View style={[styles.hoy, item.enProximas24h ? styles.soon : styles.hoyOn]}>
+          {superWatermarkId ? (
+            <SupermarketLogoWatermark
+              marketId={superWatermarkId}
+              size={Math.round(108 * s)}
+              opacity={0.22}
+            />
+          ) : null}
+          <View style={[styles.hoy, vigenciaBadge.tone === 'soon' ? styles.soon : styles.hoyOn]}>
             <Text
               style={[
                 styles.hoyText,
                 { fontSize: Math.round(10 * s) },
-                item.enProximas24h ? styles.soonText : styles.hoyOnText,
+                vigenciaBadge.tone === 'soon' ? styles.soonText : styles.hoyOnText,
               ]}
+              numberOfLines={1}
             >
-              {item.enProximas24h ? '24h' : '✓ Hoy'}
+              {vigenciaBadge.tone === 'hoy' ? `✓ ${vigenciaBadge.label}` : vigenciaBadge.label}
             </Text>
           </View>
 
@@ -372,49 +361,49 @@ export function CompactPromoSticker({
             {item.titulo}
           </Text>
 
+          <Text
+            style={[
+              styles.superLine,
+              {
+                color: tone.muted,
+                fontSize: Math.round(10 * s),
+                zIndex: 1,
+              },
+            ]}
+            numberOfLines={1}
+          >
+            {superLabel(item.supers)}
+          </Text>
+
           <View style={[styles.ctaCol, { gap: Math.round(5 * s) }]}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Copiar beneficio"
-              onPress={copyBeneficio}
-              onPressIn={() => {
-                Animated.spring(scale, {
-                  toValue: 0.97,
-                  friction: 6,
-                  useNativeDriver: true,
-                }).start();
-              }}
-              onPressOut={() => {
-                Animated.spring(scale, { toValue: 1, friction: 5, useNativeDriver: true }).start();
-              }}
-              style={[
-                styles.ctaPrimary,
-                {
-                  backgroundColor: tone.accent,
-                  paddingVertical: Math.round(7 * s),
-                },
-              ]}
-            >
-              <Text style={[styles.ctaPrimaryText, { fontSize: Math.round(12 * s) }]}>
-                {copied ? '¡Ok!' : 'Copiar beneficio'}
-              </Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Ver condiciones"
-              onPress={verCondiciones}
-              style={[
-                styles.ctaSecondary,
-                {
-                  borderColor: tone.accent,
-                  paddingVertical: Math.round(6 * s),
-                },
-              ]}
-            >
-              <Text style={[styles.ctaSecondaryText, { color: tone.accent, fontSize: Math.round(11 * s) }]}>
-                Ver condiciones
-              </Text>
-            </Pressable>
+            {item.url ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Ver condiciones"
+                onPress={verCondiciones}
+                onPressIn={() => {
+                  Animated.spring(scale, {
+                    toValue: 0.97,
+                    friction: 6,
+                    useNativeDriver: true,
+                  }).start();
+                }}
+                onPressOut={() => {
+                  Animated.spring(scale, { toValue: 1, friction: 5, useNativeDriver: true }).start();
+                }}
+                style={[
+                  styles.ctaPrimary,
+                  {
+                    backgroundColor: tone.accent,
+                    paddingVertical: Math.round(7 * s),
+                  },
+                ]}
+              >
+                <Text style={[styles.ctaPrimaryText, { fontSize: Math.round(12 * s) }]}>
+                  Ver condiciones
+                </Text>
+              </Pressable>
+            ) : null}
           </View>
         </View>
       </Animated.View>
@@ -482,6 +471,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 6,
   },
+  superLine: {
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 2,
+    marginBottom: 2,
+  },
   ctaCol: {
     marginTop: 'auto',
   },
@@ -491,15 +486,6 @@ const styles = StyleSheet.create({
   },
   ctaPrimaryText: {
     color: '#FFFDF8',
-    fontWeight: '800',
-  },
-  ctaSecondary: {
-    borderRadius: radii.pill,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.65)',
-  },
-  ctaSecondaryText: {
     fontWeight: '800',
   },
 });

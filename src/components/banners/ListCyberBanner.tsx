@@ -13,7 +13,7 @@ const LIST_BANNER_ART = require('../../../assets/list_banner_300x50.png');
 
 export { LIST_BANNER_WIDTH, LIST_BANNER_HEIGHT };
 
-const ACCESSIBILITY_LABEL = 'ListaFacil te cuida el bolsillo';
+const ACCESSIBILITY_LABEL = 'Compará precios, ahorrá siempre. Lista Fácil';
 const DEFAULT_SUPERMARKET_ID = 'carrefour';
 
 interface ListCyberBannerProps {

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Lista Fácil",
     "slug": "lista-compras-scanner",
-    "version": "2.0.4",
+    "version": "2.0.10",
     "orientation": "default",
     "icon": "./assets/logo.png",
     "scheme": "listafacil",
@@ -19,9 +19,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.listafacil.app",
+      "buildNumber": "1",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
+        "CFBundleDisplayName": "Lista Fácil",
         "NSCameraUsageDescription": "Necesitamos la cámara para escanear códigos de barra en el supermercado.",
-        "NSLocationWhenInUseUsageDescription": "Lista Fácil usa tu ubicación solo si elegís detectar tu zona automáticamente.",
+        "NSPhotoLibraryUsageDescription": "Lista Fácil usa tus fotos para cargar productos que no están en la web del supermercado.",
+        "NSLocationWhenInUseUsageDescription": "ListaFácil utiliza tu ubicación para identificar en qué zona de Rosario te encuentras y mostrarte los supermercados y ofertas disponibles más cercanos, por ejemplo, para calcular descuentos en comercios locales.",
+        "ITSAppUsesNonExemptEncryption": false,
         "LSApplicationQueriesSchemes": [
           "mailto",
           "https",
@@ -58,6 +63,11 @@
       [
         "expo-build-properties",
         {
+          "ios": {
+            "useFrameworks": "static",
+            "forceStaticLinking": ["RNFBApp", "RNFBAnalytics"],
+            "buildReactNativeFromSource": true
+          },
           "android": {
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
@@ -117,7 +127,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Lista Fácil usa tu ubicación solo si elegís detectar tu zona automáticamente.",
+          "locationWhenInUsePermission": "ListaFácil utiliza tu ubicación para identificar en qué zona de Rosario te encuentras y mostrarte los supermercados y ofertas disponibles más cercanos, por ejemplo, para calcular descuentos en comercios locales.",
           "isAndroidBackgroundLocationEnabled": false,
           "isAndroidForegroundServiceEnabled": false
         }
@@ -134,7 +144,8 @@
         }
       ],
       "./plugins/withNotificationLargeIcon.js",
-      "@react-native-firebase/app"
+      "@react-native-firebase/app",
+      "@react-native-firebase/analytics"
     ],
     "notification": {
       "icon": "./assets/notification_icon.png",

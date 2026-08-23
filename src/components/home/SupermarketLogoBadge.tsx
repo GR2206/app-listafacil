@@ -56,6 +56,33 @@ export function SupermarketLogoBadge({
   );
 }
 
+/** Marca de agua del súper de la promo (centrada en el card, baja opacidad). */
+export function SupermarketLogoWatermark({
+  marketId,
+  size = 140,
+  opacity = 0.22,
+}: {
+  marketId: string;
+  size?: number;
+  opacity?: number;
+}) {
+  const source = SUPERMARKET_LOGOS[marketId];
+  if (!source) return null;
+  return (
+    <View
+      pointerEvents="none"
+      style={[styles.watermarkLayer, { opacity }]}
+    >
+      <Image
+        source={source}
+        style={{ width: size, height: size }}
+        contentFit="contain"
+        cachePolicy="memory-disk"
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   disc: {
     backgroundColor: '#FFFFFF',
@@ -66,5 +93,11 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 1 },
     elevation: 3,
+  },
+  watermarkLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 0,
   },
 });

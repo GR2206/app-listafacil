@@ -1,6 +1,7 @@
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View, Platform } from 'react-native';
 
 import type { AppUpdatePrompt } from '@/services/appUpdateCheck';
+import { getAndroidStoreUpdateUrls, getStoreUpdateUrl } from '@/config/appLinks';
 import { openExternalUrlDirect } from '@/utils/safeLinking';
 import { withClickSound } from '@/utils/withClickSound';
 import { homeColors } from '@/theme/home';
@@ -13,10 +14,24 @@ interface UpdateAvailableModalProps {
 
 export function UpdateAvailableModal({ prompt, onDismiss }: UpdateAvailableModalProps) {
   const openUpdate = withClickSound(() => {
-    void openExternalUrlDirect(prompt.updateUrl, {
-      failTitle: 'No se pudo abrir el enlace',
-      failMessage: 'Copiá el enlace de actualización que te enviamos e instalá la nueva versión.',
-    });
+    void (async () => {
+      if (Platform.OS === 'android') {
+        const { primary, fallback } = getAndroidStoreUpdateUrls();
+        const opened = await openExternalUrlDirect(primary);
+        if (!opened) {
+          await openExternalUrlDirect(fallback, {
+            failTitle: 'No se pudo abrir Play Store',
+            failMessage: 'Buscá Lista Fácil en Google Play e instalá la actualización.',
+          });
+        }
+        return;
+      }
+
+      await openExternalUrlDirect(prompt.updateUrl || getStoreUpdateUrl(), {
+        failTitle: 'No se pudo abrir App Store',
+        failMessage: 'Buscá Lista Fácil en la App Store e instalá la actualización.',
+      });
+    })();
   });
 
   return (

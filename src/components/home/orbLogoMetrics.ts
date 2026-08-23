@@ -16,7 +16,10 @@ const MARKET_LOGO_TUNING: Record<string, number> = {
   'la-gallega': 0.9,
   carrefour: 0.97,
   coto: 1,
-  dar: 1,
+  // +30% vs tuning previo (1.0 / 0.58).
+  dar: 1.3,
+  alvear: 0.8,
+  kilbel: 0.92,
   jumbo: 0.96,
   arcoiris: 0.88,
   // Logo ancho (wordmark + SUPERMERCADOS): achicar para centrar en el orbe.
@@ -28,19 +31,29 @@ const MARKET_LOGO_TUNING: Record<string, number> = {
   atomo: 0.75,
   changomas: 0.82,
   'la-anonima': 0.86,
+  // Wordmark horizontal Cooperativa Obrera.
+  'cooperativa-obrera': 0.72,
+  top: 0.82,
   // Logos anchos / con wordmark: margen extra dentro del orbe circular.
   california: 0.62,
-  yaguar: 0.58,
+  yaguar: 0.754,
   maxiconsumo: 0.68,
   vital: 0.56,
   // Wordmark horizontal: +25% vs base inicial (quedaba chico en el orbe).
   toledo: 0.725,
 };
 
+/** Tope de diámetro por super (permite +30% en logos que ya estaban al máximo). */
+const MARKET_LOGO_MAX_RATIO: Record<string, number> = {
+  dar: 1.18,
+  yaguar: 1.05,
+};
+
 export function getOrbLogoSize(marketId: string, orbSize: number): number {
   const tuning = MARKET_LOGO_TUNING[marketId] ?? 1;
   const boosted = orbSize * ORB_LOGO_BASE_FILL * ORB_LOGO_ACCESSIBILITY_BOOST * tuning;
-  const maxSize = orbSize * ORB_LOGO_MAX_DIAMETER_RATIO;
+  const maxRatio = MARKET_LOGO_MAX_RATIO[marketId] ?? ORB_LOGO_MAX_DIAMETER_RATIO;
+  const maxSize = orbSize * maxRatio;
   return Math.round(Math.min(boosted, maxSize));
 }
 

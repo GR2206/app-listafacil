@@ -25,6 +25,12 @@ export interface PromoBancariaItem {
   enProximas24h?: boolean;
   /** True si el día de la semana de hoy está en `dias`. */
   aplicaHoy?: boolean;
+  /** Ej: "miércoles, jueves" — del bot, para UI cuando no aplica hoy. */
+  diasLabel?: string;
+  /** Origen del cruce bot: cruzado | super | banco | catalogo */
+  matchConfidence?: 'cruzado' | 'super' | 'banco' | 'catalogo' | string;
+  confirmedByBank?: boolean;
+  confirmedBySuper?: boolean;
 }
 
 export interface PromosBancariasManifest {

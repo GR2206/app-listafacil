@@ -98,7 +98,11 @@ function CartScreenContent() {
   const { metrics: c } = useCartListScale();
   const styles = useCartScreenStyles();
 
-  const params = useLocalSearchParams<{ supermarketId: string; name: string }>();
+  const params = useLocalSearchParams<{
+    supermarketId: string;
+    name: string;
+    focusBarcode?: string;
+  }>();
 
   const storeMarketId = useCartStore((s) => s.supermarketId);
 
@@ -113,6 +117,9 @@ function CartScreenContent() {
   const supermarketName =
 
     typeof params.name === 'string' ? params.name : 'Supermercado';
+
+  const focusBarcode =
+    typeof params.focusBarcode === 'string' ? params.focusBarcode.trim() : '';
 
 
 
@@ -284,6 +291,17 @@ function CartScreenContent() {
       setScanFlashKey(0);
     }
   }, [items.length]);
+
+  // Producto agregado desde el buscador: mostrar comparación multi-súper como al escanear.
+  useEffect(() => {
+    if (!focusBarcode) return;
+    if (!items.some((line) => line.barcode === focusBarcode)) return;
+    setLastScannedBarcode(focusBarcode);
+    setComparisonDismissed(false);
+    setComparisonManualOpen(false);
+    setComparisonAutoDismissUsed(false);
+    setScanFlashKey((key) => key + 1);
+  }, [focusBarcode, items]);
 
   const lastScannedProduct = useMemo(() => {
     if (!lastScannedBarcode) return null;
@@ -686,129 +704,6 @@ function CartScreenContent() {
 
 
 
-      {items.length > 0 ? (
-
-        <>
-
-          <View style={styles.listToolbar}>
-
-            <CartSortBar
-
-              sortMode={sortMode}
-
-              onSortChange={setSortMode}
-
-              onReset={handleResetOrder}
-
-            />
-
-            <Pressable
-
-              accessibilityRole="button"
-
-              accessibilityLabel="Vaciar lista de compras"
-
-              onPress={withTeclaSound(handleClearList)}
-
-              style={({ pressed }) => [
-
-                styles.clearBtn,
-
-                { borderColor: lc.border, backgroundColor: lc.surfaceElevated },
-
-                pressed && styles.clearPressed,
-
-              ]}
-
-            >
-
-              <Ionicons name="trash-outline" size={c.clearIconSize} color={theme.danger ?? '#C1121F'} />
-
-              <Text style={[styles.clearText, { color: lc.text }]}>Vaciar lista</Text>
-
-            </Pressable>
-
-          </View>
-
-          {showComparisonPanel ? (
-            <SmartSavingsPanel
-              quotes={savings.quotes}
-              winnerId={savings.winner?.supermarketId ?? null}
-              lastScannedProduct={lastScannedProduct}
-              itemsCount={items.length}
-              scanFlashKey={scanFlashKey}
-              rotateOnScan={!comparisonManualOpen}
-              onForceRefresh={handleForceRefresh}
-              isRefreshing={isForceRefreshing}
-              autoDismissMs={comparisonAutoDismissMs}
-              onDismiss={() => {
-                setComparisonDismissed(true);
-                if (!comparisonManualOpen) {
-                  setComparisonAutoDismissUsed(true);
-                }
-              }}
-              onOpenMaps={(id) => void openSupermarketInMaps(id)}
-              cartItems={items}
-              pricesByBarcode={pricesByBarcode}
-              syncedAtByBarcode={syncedAtByBarcode}
-              userPricesByBarcode={userPricesByBarcode}
-              substitutesByKey={savings.substitutesByKey}
-            />
-          ) : hasPricedComparison ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Mostrar comparación de precios"
-              onPress={withClickSound(() => {
-                setComparisonManualOpen(true);
-                setComparisonDismissed(false);
-              })}
-              style={({ pressed }) => [
-                styles.showComparisonBtn,
-                { borderColor: lc.border, backgroundColor: lc.surfaceElevated },
-                pressed && styles.clearPressed,
-              ]}
-            >
-              <Ionicons name="stats-chart-outline" size={c.sortIconSize} color={lc.textMuted} />
-              <Text style={[styles.showComparisonText, { color: lc.textMuted }]} numberOfLines={1}>
-                {savings.winner && savings.winnerSavings > 0
-                  ? `Comparar · ${savings.winner.name} ahorra ${formatCurrency(savings.winnerSavings)}`
-                  : 'Ver comparación de precios'}
-              </Text>
-            </Pressable>
-          ) : null}
-
-          <View style={styles.tableHeader}>
-
-            <View style={styles.colThumb} />
-
-            <Text style={[styles.colHeader, styles.colName, { color: lc.textMuted }]}>
-
-              Producto
-
-            </Text>
-
-            <Text style={[styles.colHeader, styles.colQty, { color: lc.textMuted }]}>
-
-              Cant.
-
-            </Text>
-
-            <Text style={[styles.colHeader, styles.colTotal, { color: lc.textMuted }]}>
-
-              Total
-
-            </Text>
-
-            <View style={styles.colEdit} />
-
-          </View>
-
-        </>
-
-      ) : null}
-
-
-
       {items.length === 0 ? (
 
         <View style={styles.empty}>
@@ -831,7 +726,7 @@ function CartScreenContent() {
 
           data={sortedItems}
 
-          extraData={`${supermarketId}-${total}-${isResolvingPrices}-${removingId}`}
+          extraData={`${supermarketId}-${total}-${isResolvingPrices}-${removingId}-${showComparisonPanel}-${scanFlashKey}`}
 
           keyExtractor={(item) => `${supermarketId}-${item.id}`}
 
@@ -842,6 +737,103 @@ function CartScreenContent() {
             { paddingBottom: c.listBottomPadding },
 
           ]}
+
+          ListHeaderComponent={
+            <View>
+              <View style={styles.listToolbar}>
+                <CartSortBar
+                  sortMode={sortMode}
+                  onSortChange={setSortMode}
+                  onReset={handleResetOrder}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Vaciar lista de compras"
+                  onPress={withTeclaSound(handleClearList)}
+                  style={({ pressed }) => [
+                    styles.clearBtn,
+                    { borderColor: lc.border, backgroundColor: lc.surfaceElevated },
+                    pressed && styles.clearPressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={c.clearIconSize}
+                    color={theme.danger ?? '#C1121F'}
+                  />
+                  <Text style={[styles.clearText, { color: lc.text }]}>Vaciar lista</Text>
+                </Pressable>
+              </View>
+
+              {showComparisonPanel ? (
+                <SmartSavingsPanel
+                  quotes={savings.quotes}
+                  winnerId={savings.winner?.supermarketId ?? null}
+                  lastScannedProduct={lastScannedProduct}
+                  itemsCount={items.length}
+                  scanFlashKey={scanFlashKey}
+                  rotateOnScan={!comparisonManualOpen}
+                  onForceRefresh={handleForceRefresh}
+                  isRefreshing={isForceRefreshing}
+                  autoDismissMs={comparisonAutoDismissMs}
+                  onDismiss={() => {
+                    setComparisonDismissed(true);
+                    if (!comparisonManualOpen) {
+                      setComparisonAutoDismissUsed(true);
+                    }
+                  }}
+                  onOpenMaps={(id) => void openSupermarketInMaps(id)}
+                  cartItems={items}
+                  pricesByBarcode={pricesByBarcode}
+                  syncedAtByBarcode={syncedAtByBarcode}
+                  userPricesByBarcode={userPricesByBarcode}
+                  substitutesByKey={savings.substitutesByKey}
+                />
+              ) : hasPricedComparison ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Mostrar comparación de precios"
+                  onPress={withClickSound(() => {
+                    setComparisonManualOpen(true);
+                    setComparisonDismissed(false);
+                  })}
+                  style={({ pressed }) => [
+                    styles.showComparisonBtn,
+                    { borderColor: lc.border, backgroundColor: lc.surfaceElevated },
+                    pressed && styles.clearPressed,
+                  ]}
+                >
+                  <Ionicons
+                    name="stats-chart-outline"
+                    size={c.sortIconSize}
+                    color={lc.textMuted}
+                  />
+                  <Text
+                    style={[styles.showComparisonText, { color: lc.textMuted }]}
+                    numberOfLines={1}
+                  >
+                    {savings.winner && savings.winnerSavings > 0
+                      ? `Comparar · ${savings.winner.name} ahorra ${formatCurrency(savings.winnerSavings)}`
+                      : 'Ver comparación de precios'}
+                  </Text>
+                </Pressable>
+              ) : null}
+
+              <View style={styles.tableHeader}>
+                <View style={styles.colThumb} />
+                <Text style={[styles.colHeader, styles.colName, { color: lc.textMuted }]}>
+                  Producto
+                </Text>
+                <Text style={[styles.colHeader, styles.colQty, { color: lc.textMuted }]}>
+                  Cant.
+                </Text>
+                <Text style={[styles.colHeader, styles.colTotal, { color: lc.textMuted }]}>
+                  Total
+                </Text>
+                <View style={styles.colEdit} />
+              </View>
+            </View>
+          }
 
           renderItem={({ item }) => (
 

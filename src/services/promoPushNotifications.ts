@@ -17,6 +17,8 @@ import {
   type NotificationResponse,
 } from 'expo-notifications/build/Notifications.types';
 import cancelScheduledNotificationAsync from 'expo-notifications/build/cancelScheduledNotificationAsync';
+import cancelAllScheduledNotificationsAsync from 'expo-notifications/build/cancelAllScheduledNotificationsAsync';
+import getAllScheduledNotificationsAsync from 'expo-notifications/build/getAllScheduledNotificationsAsync';
 import scheduleNotificationAsync from 'expo-notifications/build/scheduleNotificationAsync';
 import setNotificationChannelAsync from 'expo-notifications/build/setNotificationChannelAsync';
 
@@ -32,16 +34,43 @@ const CHANNEL_ID = 'promos-bancarias';
 const TITLE = 'Lista Fácil';
 const ROUTE = '/promos-bancarias';
 
-export const PROMO_PUSH_NOON_ID = 'promo-bancaria-noon';
-export const PROMO_PUSH_EVENING_ID = 'promo-bancaria-evening';
+/** Solo 2 pushes diarios. */
+export const PROMO_PUSH_MORNING_ID = 'promo-bancaria-morning-v2';
+export const PROMO_PUSH_AFTERNOON_ID = 'promo-bancaria-afternoon-v2';
 
-const NOON_HOUR = 12;
-const NOON_MINUTE = 0;
-const EVENING_HOUR = 18;
-const EVENING_MINUTE = 0;
+/** IDs viejos (12 / 15 / 18 / evening) — se cancelan para no disparar de más ni a las 00hs. */
+const LEGACY_PROMO_PUSH_IDS = [
+  'promo-bancaria-noon',
+  'promo-bancaria-afternoon',
+  'promo-bancaria-evening',
+  'promo-bancaria-morning',
+  PROMO_PUSH_MORNING_ID,
+  PROMO_PUSH_AFTERNOON_ID,
+] as const;
+
+/** 09:00–09:59 y 15:00–15:59 (minuto aleatorio). */
+const MORNING_HOUR = 9;
+const AFTERNOON_HOUR = 15;
+
+const MIN_PROMOS_PER_PUSH = 2;
+const MAX_PROMOS_PER_PUSH = 3;
 
 let channelReady = false;
 let responseListenerAttached = false;
+
+function randomMinuteInHour(): number {
+  return Math.floor(Math.random() * 60);
+}
+
+function shuffleInPlace<T>(items: T[]): T[] {
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = items[i]!;
+    items[i] = items[j]!;
+    items[j] = tmp;
+  }
+  return items;
+}
 
 function ensureNotificationHandler(): void {
   setNotificationHandler({
@@ -60,7 +89,7 @@ async function ensureAndroidChannel(): Promise<void> {
 
   await setNotificationChannelAsync(CHANNEL_ID, {
     name: 'Promos bancarias',
-    importance: AndroidImportance.MAX,
+    importance: AndroidImportance.DEFAULT,
     vibrationPattern: [0, 220, 120, 220],
     lockscreenVisibility: AndroidNotificationVisibility.PUBLIC,
     bypassDnd: false,
@@ -92,37 +121,84 @@ export async function ensurePromoNotificationPermission(): Promise<boolean> {
   }
 }
 
-/** Copy heads-up: "Hoy promo con MODO en Carrefour". */
-export function buildPromoPushCopy(
-  promo: PromoBancariaItem,
-  zoneSetting: string | null
-): { title: string; body: string } {
+function promoLine(promo: PromoBancariaItem, zoneSetting: string | null): string {
   const medio = (promo.medios[0] ?? promo.banco ?? 'promo').trim() || 'promo';
-
-  if (promo.supers.length === 0) {
-    return { title: TITLE, body: `Hoy promo con ${medio}` };
-  }
+  if (promo.supers.length === 0) return `promo con ${medio}`;
 
   const preferredId =
     promo.supers.find((id) => isSupermarketAvailableInZone(id, zoneSetting)) ??
     promo.supers[0];
   const superName = getCatalogEntry(preferredId)?.name ?? preferredId;
-
-  return { title: TITLE, body: `Hoy promo con ${medio} en ${superName}` };
+  return `${medio} en ${superName}`;
 }
 
-/** Top 1 y 2 de la zona; prioriza las que aplican hoy. */
+/** Copy: 1 promo o lista de 2–3 del mismo push. */
+export function buildPromoPushCopy(
+  promos: PromoBancariaItem[],
+  zoneSetting: string | null
+): { title: string; body: string } {
+  const list = promos.filter(Boolean);
+  if (list.length === 0) {
+    return { title: TITLE, body: 'Mirá las promos de hoy en tu zona' };
+  }
+
+  if (list.length === 1) {
+    return { title: TITLE, body: `Hoy promo con ${promoLine(list[0]!, zoneSetting)}` };
+  }
+
+  const lines = list.map((p) => `· ${promoLine(p, zoneSetting)}`);
+  return {
+    title: TITLE,
+    body: `Hoy en tu zona:\n${lines.join('\n')}`,
+  };
+}
+
+/** Compat: firma vieja de 1 promo. */
+export function buildPromoPushCopySingle(
+  promo: PromoBancariaItem,
+  zoneSetting: string | null
+): { title: string; body: string } {
+  return buildPromoPushCopy([promo], zoneSetting);
+}
+
+/**
+ * Pool de la zona (solo región del usuario), prioriza aplicaHoy,
+ * mezcla al azar y toma 2–3 (o las que haya).
+ */
+export function pickRandomPromosForPush(
+  manifest: PromosBancariasManifest,
+  zoneSetting: string | null,
+  count = MAX_PROMOS_PER_PUSH
+): PromoBancariaItem[] {
+  const ranked = filterPromosForZone(manifest, zoneSetting).promos_bancarias;
+  if (ranked.length === 0) return [];
+
+  const todayOnly = ranked.filter((p) => p.aplicaHoy === true);
+  const pool = [...(todayOnly.length > 0 ? todayOnly : ranked)];
+  shuffleInPlace(pool);
+
+  if (pool.length <= 1) return pool.slice(0, 1);
+
+  const desired =
+    pool.length >= MAX_PROMOS_PER_PUSH
+      ? MIN_PROMOS_PER_PUSH +
+        Math.floor(Math.random() * (MAX_PROMOS_PER_PUSH - MIN_PROMOS_PER_PUSH + 1))
+      : pool.length;
+
+  return pool.slice(0, Math.min(desired, count, pool.length));
+}
+
+/** @deprecated usar pickRandomPromosForPush */
 export function pickTopPromosForPush(
   manifest: PromosBancariasManifest,
   zoneSetting: string | null
-): { noon: PromoBancariaItem | null; evening: PromoBancariaItem | null } {
-  const ranked = filterPromosForZone(manifest, zoneSetting).promos_bancarias;
-  const todayOnly = ranked.filter((p) => p.aplicaHoy === true);
-  const pool = todayOnly.length > 0 ? todayOnly : ranked;
-
+): {
+  morning: PromoBancariaItem[];
+  afternoon: PromoBancariaItem[];
+} {
   return {
-    noon: pool[0] ?? null,
-    evening: pool[1] ?? null,
+    morning: pickRandomPromosForPush(manifest, zoneSetting),
+    afternoon: pickRandomPromosForPush(manifest, zoneSetting),
   };
 }
 
@@ -134,14 +210,42 @@ async function cancelPromoPush(identifier: string): Promise<void> {
   }
 }
 
+/** Cancela schedules de promos (viejos y nuevos) para evitar 00hs / spam. */
+export async function cancelAllPromoPushNotifications(): Promise<void> {
+  await Promise.all(LEGACY_PROMO_PUSH_IDS.map((id) => cancelPromoPush(id)));
+
+  try {
+    const scheduled = await getAllScheduledNotificationsAsync();
+    await Promise.all(
+      scheduled.map(async (req) => {
+        const data = req.content.data as { route?: unknown; slot?: unknown } | undefined;
+        const id = req.identifier ?? '';
+        const isPromo =
+          id.includes('promo-bancaria') ||
+          data?.route === ROUTE ||
+          (typeof data?.slot === 'string' && data.slot.includes('promo'));
+        if (isPromo) {
+          await cancelPromoPush(id);
+        }
+      })
+    );
+  } catch {
+    // Si falla el listado, al menos cancelamos por id conocido.
+  }
+}
+
 async function scheduleDailyPromoPush(options: {
   identifier: string;
-  promo: PromoBancariaItem;
+  promos: PromoBancariaItem[];
   zoneSetting: string | null;
   hour: number;
   minute: number;
 }): Promise<void> {
-  const { title, body } = buildPromoPushCopy(options.promo, options.zoneSetting);
+  if (options.promos.length === 0) return;
+  if (options.hour < 0 || options.hour > 23) return;
+  if (options.minute < 0 || options.minute > 59) return;
+
+  const { title, body } = buildPromoPushCopy(options.promos, options.zoneSetting);
 
   await scheduleNotificationAsync({
     identifier: options.identifier,
@@ -149,13 +253,13 @@ async function scheduleDailyPromoPush(options: {
       title,
       body,
       sound: true,
-      priority: AndroidNotificationPriority.MAX,
+      priority: AndroidNotificationPriority.DEFAULT,
       vibrate: [0, 220, 120, 220],
-      // Acento Android (tinte del ícono pequeño + nombre de la app).
       color: '#F0C419',
       data: {
         route: ROUTE,
-        promoId: options.promo.id,
+        promoId: options.promos[0]?.id ?? null,
+        promoIds: options.promos.map((p) => p.id),
         slot: options.identifier,
       },
       ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
@@ -169,15 +273,9 @@ async function scheduleDailyPromoPush(options: {
   });
 }
 
-export async function cancelAllPromoPushNotifications(): Promise<void> {
-  await Promise.all([
-    cancelPromoPush(PROMO_PUSH_NOON_ID),
-    cancelPromoPush(PROMO_PUSH_EVENING_ID),
-  ]);
-}
-
 /**
- * Pide permiso, cancela schedules previos y programa 12:00 (1ª) y 18:00 (2ª).
+ * Pide permiso, limpia schedules viejos y programa SOLO:
+ * 09:xx (mañana) y 15:xx (tarde), con 2–3 promos aleatorias de la zona.
  */
 export async function syncPromoPushNotifications(options: {
   zone: string | null;
@@ -192,26 +290,31 @@ export async function syncPromoPushNotifications(options: {
       return;
     }
 
-    const { noon, evening } = pickTopPromosForPush(options.manifest, options.zone);
+    // Limpieza agresiva de leftovers (incluye evening/noon que disparaban de más).
     await cancelAllPromoPushNotifications();
 
-    if (!noon) return;
+    const morningPromos = pickRandomPromosForPush(options.manifest, options.zone);
+    const afternoonPromos = pickRandomPromosForPush(options.manifest, options.zone);
 
-    await scheduleDailyPromoPush({
-      identifier: PROMO_PUSH_NOON_ID,
-      promo: noon,
-      zoneSetting: options.zone,
-      hour: NOON_HOUR,
-      minute: NOON_MINUTE,
-    });
+    if (morningPromos.length === 0 && afternoonPromos.length === 0) return;
 
-    if (evening) {
+    if (morningPromos.length > 0) {
       await scheduleDailyPromoPush({
-        identifier: PROMO_PUSH_EVENING_ID,
-        promo: evening,
+        identifier: PROMO_PUSH_MORNING_ID,
+        promos: morningPromos,
         zoneSetting: options.zone,
-        hour: EVENING_HOUR,
-        minute: EVENING_MINUTE,
+        hour: MORNING_HOUR,
+        minute: randomMinuteInHour(),
+      });
+    }
+
+    if (afternoonPromos.length > 0) {
+      await scheduleDailyPromoPush({
+        identifier: PROMO_PUSH_AFTERNOON_ID,
+        promos: afternoonPromos,
+        zoneSetting: options.zone,
+        hour: AFTERNOON_HOUR,
+        minute: randomMinuteInHour(),
       });
     }
   } catch {
@@ -270,7 +373,7 @@ export function registerPromoPushResponseListener(): () => void {
   };
 }
 
-/** Dev: dispara una notificación de prueba en ~8s con la 1ª promo de la zona. */
+/** Dev: dispara una notificación de prueba en ~8s con promos de la zona. */
 export async function schedulePromoPushSmokeTest(
   zoneSetting: string | null
 ): Promise<boolean> {
@@ -282,18 +385,23 @@ export async function schedulePromoPushSmokeTest(
     if (!granted) return false;
 
     const { manifest } = await fetchPromosBancariasManifest();
-    const { noon } = pickTopPromosForPush(manifest, zoneSetting);
-    if (!noon) return false;
+    const promos = pickRandomPromosForPush(manifest, zoneSetting);
+    if (promos.length === 0) return false;
 
-    const { title, body } = buildPromoPushCopy(noon, zoneSetting);
+    const { title, body } = buildPromoPushCopy(promos, zoneSetting);
     await scheduleNotificationAsync({
       content: {
         title,
         body,
         sound: true,
-        priority: AndroidNotificationPriority.MAX,
+        priority: AndroidNotificationPriority.DEFAULT,
         color: '#F0C419',
-        data: { route: ROUTE, promoId: noon.id, slot: 'smoke-test' },
+        data: {
+          route: ROUTE,
+          promoId: promos[0]?.id,
+          promoIds: promos.map((p) => p.id),
+          slot: 'smoke-test',
+        },
         ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
       },
       trigger: {
@@ -306,5 +414,14 @@ export async function schedulePromoPushSmokeTest(
     return true;
   } catch {
     return false;
+  }
+}
+
+/** Solo para tests/admin: limpia TODAS las notificaciones locales programadas. */
+export async function purgeAllScheduledLocalNotifications(): Promise<void> {
+  try {
+    await cancelAllScheduledNotificationsAsync();
+  } catch {
+    await cancelAllPromoPushNotifications();
   }
 }

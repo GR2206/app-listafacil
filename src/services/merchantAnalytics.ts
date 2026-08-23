@@ -11,17 +11,21 @@ import {
   mergeRemoteAndLocalDashboardStats,
   recordRemoteMerchantEvent,
 } from '@/services/merchantAnalyticsRemote';
+import { SELECTED_ZONE_SETTING_KEY } from '@/config/zones';
+import { resolveZoneRegion } from '@/utils/zoneRegion';
 
 export type MerchantAnalyticsEvent =
   | 'price_view'
   | 'maps_click'
   | 'best_price_win'
-  | 'product_view';
+  | 'product_view'
+  | 'super_entry';
 
 const VISITOR_ID_KEY = 'analytics_visitor_id';
 
 export interface MerchantDailyStats {
   uniquePriceVisitors: number;
+  uniqueSuperEntries: number;
   mapsClicks: number;
   bestPriceWins: number;
 }
@@ -48,7 +52,8 @@ async function getOrCreateVisitorId(): Promise<string> {
 
 export async function trackMerchantEvent(
   supermarketId: string,
-  eventType: MerchantAnalyticsEvent
+  eventType: MerchantAnalyticsEvent,
+  extras?: { zoneKey?: string | null }
 ): Promise<void> {
   if (!supermarketId) return;
 
@@ -62,7 +67,23 @@ export async function trackMerchantEvent(
     supermarketId,
     eventType,
     visitorId,
+    zoneKey: extras?.zoneKey,
   });
+}
+
+/** Entrada al súper (grid / taquillero / oferta / búsqueda). Global, todas las regiones. */
+export async function trackSupermarketEntry(supermarketId: string): Promise<void> {
+  if (!supermarketId) return;
+
+  let zoneKey: string | null = null;
+  try {
+    const zoneSetting = await getAppSetting(SELECTED_ZONE_SETTING_KEY);
+    zoneKey = resolveZoneRegion(zoneSetting).key;
+  } catch {
+    // ignore
+  }
+
+  await trackMerchantEvent(supermarketId, 'super_entry', { zoneKey });
 }
 
 export async function trackMerchantProductView(
@@ -101,6 +122,7 @@ export async function loadMerchantDashboardStats(
 
   const local: MerchantDashboardStats = {
     uniquePriceVisitors: today.uniquePriceVisitors,
+    uniqueSuperEntries: today.uniqueSuperEntries,
     mapsClicks: today.mapsClicks,
     bestPriceWins: today.bestPriceWins,
     weeklyPeak,
